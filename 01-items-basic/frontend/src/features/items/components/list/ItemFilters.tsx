@@ -5,9 +5,10 @@ interface ItemFiltersProps {
   status: ItemStatusFilter;
   onSearchChange: (value: string) => void;
   onStatusChange: (value: ItemStatusFilter) => void;
+  onClearFilters: () => void;
 }
 
-export function ItemFilters({ search, status, onSearchChange, onStatusChange }: ItemFiltersProps) {
+export function ItemFilters({ search, status, onSearchChange, onStatusChange, onClearFilters }: ItemFiltersProps) {
   return (
     <div className="flex gap-3 mb-4">
       <input
@@ -26,6 +27,14 @@ export function ItemFilters({ search, status, onSearchChange, onStatusChange }: 
         <option value="active">Active</option>
         <option value="inactive">Inactive</option>
       </select>
+      <button
+        type="button"
+        onClick={onClearFilters}
+        disabled={search.length === 0 && status === 'all'}
+        className="border border-gray-300 rounded px-3 py-2 text-sm disabled:opacity-40"
+      >
+        Clear filters
+      </button>
     </div>
   );
 }

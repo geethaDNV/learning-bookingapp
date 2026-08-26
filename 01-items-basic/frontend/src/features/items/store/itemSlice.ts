@@ -39,6 +39,11 @@ const itemSlice = createSlice({
     setPage(state, action: PayloadAction<number>) {
       state.page = action.payload;
     },
+    resetFilters(state) {
+      state.search = '';
+      state.status = 'all';
+      state.page = 1;
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -58,5 +63,5 @@ const itemSlice = createSlice({
   },
 });
 
-export const { setSearch, setStatus, setPage } = itemSlice.actions;
+export const { setSearch, setStatus, setPage, resetFilters } = itemSlice.actions;
 export default itemSlice.reducer;

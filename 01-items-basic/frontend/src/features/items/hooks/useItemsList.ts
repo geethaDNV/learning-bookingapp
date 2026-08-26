@@ -11,7 +11,7 @@ import {
   selectItemStatus,
   selectItemTotal,
 } from '../store/itemSelectors';
-import { setPage, setSearch, setStatus } from '../store/itemSlice';
+import { resetFilters, setPage, setSearch, setStatus } from '../store/itemSlice';
 import { ItemStatusFilter } from '../types/item.types';
 
 // Dispatches fetchItems whenever search/status/page change — mirrors production's dispatch-driven data flow.
@@ -49,5 +49,6 @@ export function useItemsList() {
     setSearch: (value: string) => dispatch(setSearch(value)),
     setStatus: (value: ItemStatusFilter) => dispatch(setStatus(value)),
     setPage: (value: number) => dispatch(setPage(value)),
+    clearFilters: () => dispatch(resetFilters()),
   };
 }
