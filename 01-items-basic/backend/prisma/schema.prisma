@@ -1,0 +1,30 @@
+// Learning module 01: trimmed Item model — see docs/02-database-and-prisma.md for a full walkthrough.
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Item {
+  id        Int      @id @default(autoincrement())
+  name      String   @db.VarChar(255)
+  sku       String?  @db.VarChar(100)
+  itemType  String   @map("item_type") @db.VarChar(20) // "goods" | "service"
+
+  // Present in the schema for the next module's CRUD form, not searchable yet (see docs/04).
+  hsnCode   String?  @map("hsn_code") @db.VarChar(20)
+  sacCode   String?  @map("sac_code") @db.VarChar(20)
+
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([name])
+  @@index([name])
+  @@index([itemType])
+  @@index([isActive])
+  @@map("items")
+}
