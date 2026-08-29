@@ -1,0 +1,30 @@
+// Learning module 02: trimmed Item CRUD model with HSN/SAC search support.
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Item {
+  id        Int      @id @default(autoincrement())
+  name      String   @db.VarChar(255)
+  sku       String?  @db.VarChar(100)
+  itemType  String   @map("item_type") @db.VarChar(20) // "goods" | "service"
+  hsnCode   String?  @map("hsn_code") @db.VarChar(20)
+  sacCode   String?  @map("sac_code") @db.VarChar(20)
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([name])
+  @@index([sku])
+  @@index([name])
+  @@index([itemType])
+  @@index([hsnCode])
+  @@index([sacCode])
+  @@index([isActive])
+  @@map("items")
+}
