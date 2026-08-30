@@ -1,0 +1,43 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "lib": ["ES2022"],
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "moduleResolution": "node",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "baseUrl": "./src",
+    "paths": {
+      "@/*": ["./*"],
+      "@config": ["./config/index.ts"],
+      "@constants": ["./constants/index.ts"],
+      "@controllers": ["./controllers/index.ts"],
+      "@di": ["./di/index.ts"],
+      "@middleware": ["./middleware/index.ts"],
+      "@models": ["./models/index.ts"],
+      "@repositories": ["./repositories/index.ts"],
+      "@routes": ["./routes/index.ts"],
+      "@schemas": ["./schemas/index.ts"],
+      "@services": ["./services/index.ts"],
+      "@types": ["./types/index.ts"],
+      "@utils": ["./utils/index.ts"]
+    }
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

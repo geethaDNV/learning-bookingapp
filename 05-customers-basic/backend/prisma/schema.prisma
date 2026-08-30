@@ -1,0 +1,34 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Customer {
+  id            Int       @id @default(autoincrement())
+  publicId      String    @unique @default(uuid())
+  displayName   String    @db.VarChar(255)
+  email         String?   @db.VarChar(255)
+  phone         String?   @db.VarChar(20)
+  gstin         String?   @db.VarChar(15)
+  billingAddress String?  @db.Text
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  createdBy     String?   @db.VarChar(100)
+  updatedBy     String?   @db.VarChar(100)
+
+  // Indexes for search and filtering
+  @@index([displayName])
+  @@index([email])
+  @@index([phone])
+  @@index([gstin])
+  @@index([isActive])
+  @@map("customers")
+}
