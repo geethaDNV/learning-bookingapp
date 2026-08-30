@@ -1,0 +1,38 @@
+{
+  "name": "04-auth-basic-backend",
+  "version": "1.0.0",
+  "description": "Learning module: authentication basics with Express, Prisma, and TypeScript",
+  "main": "dist/backend.js",
+  "scripts": {
+    "dev": "concurrently \"npx tsx watch src/backend.ts\" \"npx prisma studio --schema src/prisma/schema.prisma\"",
+    "start": "node dist/backend.js",
+    "build": "tsc",
+    "prisma:push": "prisma db push --schema src/prisma/schema.prisma",
+    "prisma:reset": "prisma db push --skip-generate --force-reset --schema src/prisma/schema.prisma",
+    "prisma:migrate": "prisma migrate dev --name init --schema src/prisma/schema.prisma",
+    "prisma:generate": "prisma generate --schema src/prisma/schema.prisma",
+    "type-check": "tsc --noEmit"
+  },
+  "keywords": ["auth", "learning", "express", "prisma"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@prisma/client": "^6.0.0",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.1.2",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.2",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.7",
+    "@types/node": "^20.11.5",
+    "concurrently": "^8.2.2",
+    "prisma": "^6.0.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3"
+  }
+}
