@@ -1,0 +1,286 @@
+/* ── Global Styles ────────────────────────────────────────────────────────── */
+
+:root {
+  --color-primary: #007bff;
+  --color-primary-dark: #0056b3;
+  --color-success: #28a745;
+  --color-error: #dc3545;
+  --color-warning: #ffc107;
+  --color-border: #e0e0e0;
+  --color-bg-light: #f9f9f9;
+  --color-text-primary: #333;
+  --color-text-muted: #666;
+  --color-text-light: #999;
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 20px;
+  --spacing-xl: 32px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: var(--color-bg-light);
+  color: var(--color-text-primary);
+}
+
+/* ── App Layout ────────────────────────────────────────────────────────────── */
+
+.app {
+  min-height: 100vh;
+  padding: var(--spacing-lg);
+}
+
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+/* ── Header ────────────────────────────────────────────────────────────────── */
+
+.header {
+  text-align: center;
+  margin-bottom: var(--spacing-xl);
+}
+
+.header h1 {
+  margin: 0 0 var(--spacing-md) 0;
+  font-size: 32px;
+  color: var(--color-text-primary);
+}
+
+.subtitle {
+  margin: 0;
+  font-size: 16px;
+  color: var(--color-text-muted);
+}
+
+/* ── Status Messages ───────────────────────────────────────────────────────── */
+
+.statusMessage {
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--spacing-lg);
+  font-size: 14px;
+  font-weight: 600;
+  animation: slideDown 0.3s ease-out;
+}
+
+.statusMessage.success {
+  background: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.statusMessage.error {
+  background: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Cards ────────────────────────────────────────────────────────────────── */
+
+.card {
+  background: white;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  margin-bottom: var(--spacing-lg);
+  overflow: hidden;
+}
+
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-lg);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.cardHeader h2 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.badge.sent {
+  background: #d4edda;
+  color: #155724;
+}
+
+.cardBody {
+  padding: var(--spacing-lg);
+}
+
+.infoRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-md) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.infoRow:last-child {
+  border-bottom: none;
+}
+
+.label {
+  font-weight: 600;
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
+.value {
+  color: var(--color-text-primary);
+  font-size: 14px;
+}
+
+.value.monospace {
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  background: var(--color-bg-light);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+}
+
+.cardActions {
+  padding: var(--spacing-lg);
+  background: var(--color-bg-light);
+  display: flex;
+  gap: var(--spacing-md);
+}
+
+/* ── Buttons ───────────────────────────────────────────────────────────────── */
+
+.buttonPrimary {
+  background: var(--color-primary);
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.buttonPrimary:hover {
+  background: var(--color-primary-dark);
+}
+
+.buttonPrimary:active {
+  transform: scale(0.98);
+}
+
+/* ── Lists ────────────────────────────────────────────────────────────────── */
+
+.featureList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.featureList li {
+  padding: var(--spacing-md) 0;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.featureList li:last-child {
+  border-bottom: none;
+}
+
+/* ── Code Block ────────────────────────────────────────────────────────────── */
+
+.codeBlock {
+  background: #1e1e1e;
+  color: #d4d4d4;
+  padding: var(--spacing-lg);
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* ── Loading & Error States ────────────────────────────────────────────────── */
+
+.loadingState,
+.errorState {
+  text-align: center;
+  padding: var(--spacing-xl);
+}
+
+.loadingState h2,
+.errorState h2 {
+  margin-top: 0;
+}
+
+.errorState code {
+  display: block;
+  background: var(--color-bg-light);
+  padding: var(--spacing-md);
+  border-radius: var(--radius-sm);
+  margin: var(--spacing-md) 0;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+}
+
+/* ── Responsive ────────────────────────────────────────────────────────────── */
+
+@media (max-width: 600px) {
+  .app {
+    padding: var(--spacing-md);
+  }
+
+  .header h1 {
+    font-size: 24px;
+  }
+
+  .cardHeader {
+    flex-direction: column;
+    gap: var(--spacing-md);
+    align-items: flex-start;
+  }
+
+  .infoRow {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .label {
+    margin-bottom: var(--spacing-xs);
+  }
+}
