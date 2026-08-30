@@ -1,0 +1,130 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Account {
+  id              String   @id @default(cuid())
+  code            String   @unique
+  name            String
+  accountType     String   // Asset, Liability, Equity, Revenue, Expense
+  normalBalance   String   // Debit or Credit
+  description     String?
+
+  journalLines    JournalEntryLine[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([accountType])
+}
+
+model JournalEntry {
+  id              String   @id @default(cuid())
+  referenceType   String   // Payment, Refund, Adjustment, etc.
+  referenceId     String   // ID of the payment/refund
+  description     String
+  entryDate       DateTime
+  status          String   @default("posted") // posted, voided
+
+  lines           JournalEntryLine[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([referenceType, referenceId])
+  @@index([status])
+}
+
+model JournalEntryLine {
+  id              String   @id @default(cuid())
+  journalEntryId  String
+  accountId       String
+  debitAmount     Float    @default(0)
+  creditAmount    Float    @default(0)
+  lineNumber      Int
+  description     String?
+
+  journalEntry    JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  account         Account      @relation(fields: [accountId], references: [id])
+  createdAt       DateTime @default(now())
+
+  @@unique([journalEntryId, lineNumber])
+  @@index([accountId])
+}
+
+model Invoice {
+  id              String   @id @default(cuid())
+  invoiceNumber   String   @unique
+  customerId      String
+  totalAmount     Float
+  paidAmount      Float    @default(0)
+  dueDate         DateTime
+  status          String   @default("unpaid") // unpaid, partially_paid, paid
+
+  payments        Payment[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([customerId])
+  @@index([status])
+}
+
+model Payment {
+  id              String   @id @default(cuid())
+  invoiceId       String
+  amount          Float
+  paymentMethod   String   // card, transfer, upi, etc.
+  paymentGatewayId String?
+  status          String   @default("captured") // captured, failed, refunded, partially_refunded
+  capturedAt      DateTime @default(now())
+  postedAt        DateTime? // When accounting posting happened
+  isPosted        Boolean  @default(false) // Idempotency check
+  idempotencyKey  String?
+
+  refunds         Refund[]
+  journalEntry    JournalEntry? // Link to posting journal entry (via referenceId)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([invoiceId])
+  @@index([status])
+  @@index([isPosted])
+  @@unique([idempotencyKey])
+}
+
+model Refund {
+  id              String   @id @default(cuid())
+  paymentId       String
+  amount          Float
+  reason          String
+  status          String   @default("pending") // pending, processed, failed
+  processedAt     DateTime?
+
+  payment         Payment  @relation(fields: [paymentId], references: [id])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([paymentId])
+  @@index([status])
+}
+
+model ReconciliationRecord {
+  id              String   @id @default(cuid())
+  paymentId       String
+  status          String   @default("unreconciled") // unreconciled, reconciled
+  reconciliationDate DateTime?
+  bankReference   String?
+  notes           String?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([paymentId])
+  @@index([status])
+}
