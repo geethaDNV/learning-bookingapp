@@ -1,0 +1,66 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Customer {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  phone     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  invoices Invoice[]
+  payments Payment[]
+
+  @@map("customers")
+}
+
+model Invoice {
+  id            String   @id @default(cuid())
+  customerId    String
+  customer      Customer @relation(fields: [customerId], references: [id])
+  invoiceNumber String   @unique
+  amount        Decimal  @db.Decimal(10, 2)
+  currency      String   @default("INR")
+  paidAmount    Decimal  @default(0) @db.Decimal(10, 2)
+  balanceDue    Decimal  @db.Decimal(10, 2)
+  status        String   @default("DRAFT")
+  description   String?
+  dueDate       DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  payments Payment[]
+
+  @@map("invoices")
+}
+
+model Payment {
+  id                String   @id @default(cuid())
+  invoiceId         String
+  invoice           Invoice  @relation(fields: [invoiceId], references: [id])
+  customerId        String
+  customer          Customer @relation(fields: [customerId], references: [id])
+  amount            Decimal  @db.Decimal(10, 2)
+  currency          String   @default("INR")
+  status            String   @default("PENDING")
+  provider          String   // "mock" or "razorpay"
+  publicId          String   @unique
+  providerPaymentId String
+  providerLinkId    String
+  hostedUrl         String
+  lastEventId       String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("payments")
+}
