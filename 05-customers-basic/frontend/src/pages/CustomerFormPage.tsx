@@ -1,6 +1,6 @@
 // Customer Create/Edit Page
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
@@ -16,14 +16,27 @@ import {
   selectCustomersError,
   clearSelectedCustomer,
 } from '@store/customerSlice';
+import { customerService } from '@services/customerService';
+
+const GSTIN_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
+const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
 
 // Validation schema
 const customerSchema = z.object({
+  customerType: z.enum(['business', 'individual']),
   displayName: z.string().min(2, 'Name must be at least 2 characters'),
   email: z.string().email('Invalid email').optional().or(z.literal('')),
   phone: z.string().optional().or(z.literal('')),
-  gstin: z.string().max(15, 'GSTIN must be 15 characters or less').optional().or(z.literal('')),
+  gstin: z.string().regex(GSTIN_REGEX, 'Invalid GSTIN format').optional().or(z.literal('')),
+  pan: z.string().regex(PAN_REGEX, 'Invalid PAN format').optional().or(z.literal('')),
   billingAddress: z.string().optional().or(z.literal('')),
+}).superRefine((value, context) => {
+  if (value.customerType === 'business' && !value.gstin) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['gstin'], message: 'GSTIN is required for a business customer' });
+  }
+  if (value.customerType === 'individual' && !value.pan) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['pan'], message: 'PAN is required for an individual customer' });
+  }
 });
 
 type CustomerFormData = z.infer<typeof customerSchema>;
@@ -42,9 +55,17 @@ export const CustomerFormPage: React.FC = () => {
     handleSubmit,
     formState: { errors },
     reset,
+    setValue,
+    watch,
   } = useForm<CustomerFormData>({
     resolver: zodResolver(customerSchema),
+    defaultValues: { customerType: 'business', displayName: '', email: '', phone: '', gstin: '', pan: '', billingAddress: '' },
   });
+  const [prefillMessage, setPrefillMessage] = useState<string | null>(null);
+  const [prefillError, setPrefillError] = useState<string | null>(null);
+  const [isPrefillLoading, setIsPrefillLoading] = useState(false);
+  const customerType = watch('customerType');
+  const gstin = watch('gstin');
 
   useEffect(() => {
     if (isEdit && publicId) {
@@ -59,32 +80,66 @@ export const CustomerFormPage: React.FC = () => {
   useEffect(() => {
     if (isEdit && customer) {
       reset({
+        customerType: customer.customerType || 'business',
         displayName: customer.displayName,
         email: customer.email || '',
         phone: customer.phone || '',
         gstin: customer.gstin || '',
+        pan: customer.pan || '',
         billingAddress: customer.billingAddress || '',
       });
     }
   }, [customer, reset, isEdit]);
 
+  const handleGstinLookup = async () => {
+    const normalizedGstin = gstin?.trim().toUpperCase() || '';
+    if (!GSTIN_REGEX.test(normalizedGstin)) {
+      setPrefillError('Enter a valid 15-character GSTIN before searching.');
+      setPrefillMessage(null);
+      return;
+    }
+
+    setIsPrefillLoading(true);
+    setPrefillError(null);
+    setPrefillMessage(null);
+    try {
+      const response = await customerService.getPrefillByGstin(normalizedGstin);
+      if (!response.data) {
+        setPrefillError('No business details were found for this GSTIN.');
+        return;
+      }
+      setValue('displayName', response.data.displayName, { shouldDirty: true, shouldValidate: true });
+      setValue('gstin', response.data.gstin, { shouldDirty: true, shouldValidate: true });
+      setValue('billingAddress', response.data.billingAddress, { shouldDirty: true });
+      setPrefillMessage('Business details filled from GSTIN.');
+    } catch (lookupError) {
+      setPrefillError(lookupError instanceof Error ? lookupError.message : 'GSTIN lookup failed.');
+    } finally {
+      setIsPrefillLoading(false);
+    }
+  };
+
   const onSubmit = async (data: CustomerFormData) => {
     try {
+      const payload = {
+        ...data,
+        gstin: data.customerType === 'business' ? data.gstin?.toUpperCase() : undefined,
+        pan: data.customerType === 'individual' ? data.pan?.toUpperCase() : undefined,
+      };
       if (isEdit && publicId) {
         await dispatch(
           updateCustomer({
             publicId,
             payload: {
-              ...data,
-              email: data.email || undefined,
-              phone: data.phone || undefined,
-              gstin: data.gstin || undefined,
-              billingAddress: data.billingAddress || undefined,
+              ...payload,
+              email: payload.email || undefined,
+              phone: payload.phone || undefined,
+              billingAddress: payload.billingAddress || undefined,
             },
           })
         ).unwrap();
       } else {
-        await dispatch(createCustomer(data)).unwrap();
+        await dispatch(createCustomer(payload)).unwrap();
       }
       navigate('/customers');
     } catch (err) {
@@ -123,6 +178,21 @@ export const CustomerFormPage: React.FC = () => {
                 {error}
               </div>
             )}
+
+            {/* Display Name */}
+            <fieldset className="mb-6">
+              <legend className="block text-sm font-medium text-gray-700 mb-2">Customer Type *</legend>
+              <div className="flex gap-6">
+                <label className="flex items-center gap-2 text-sm text-gray-700">
+                  <input {...register('customerType')} type="radio" value="business" />
+                  Business
+                </label>
+                <label className="flex items-center gap-2 text-sm text-gray-700">
+                  <input {...register('customerType')} type="radio" value="individual" />
+                  Individual
+                </label>
+              </div>
+            </fieldset>
 
             {/* Display Name */}
             <div className="mb-6">
@@ -175,22 +245,40 @@ export const CustomerFormPage: React.FC = () => {
               )}
             </div>
 
-            {/* GSTIN */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                GSTIN
-              </label>
-              <input
-                {...register('gstin')}
-                type="text"
-                className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
-                  errors.gstin ? 'border-red-300' : 'border-gray-300'
-                }`}
-              />
-              {errors.gstin && (
-                <p className="mt-1 text-sm text-red-600">{errors.gstin.message}</p>
-              )}
-            </div>
+            {customerType === 'business' ? (
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-1">GSTIN *</label>
+                <div className="flex gap-3">
+                  <input
+                    {...register('gstin')}
+                    type="text"
+                    maxLength={15}
+                    className={`min-w-0 flex-1 px-3 py-2 border rounded-md shadow-sm uppercase focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
+                      errors.gstin ? 'border-red-300' : 'border-gray-300'
+                    }`}
+                  />
+                  <button type="button" onClick={handleGstinLookup} disabled={isPrefillLoading} className="shrink-0 px-4 py-2 border border-blue-600 text-blue-600 rounded-md hover:bg-blue-50 disabled:opacity-50">
+                    {isPrefillLoading ? 'Searching...' : 'Search GSTIN'}
+                  </button>
+                </div>
+                {errors.gstin && <p className="mt-1 text-sm text-red-600">{errors.gstin.message}</p>}
+                {prefillError && <p className="mt-1 text-sm text-red-600">{prefillError}</p>}
+                {prefillMessage && <p className="mt-1 text-sm text-green-600">{prefillMessage}</p>}
+              </div>
+            ) : (
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-1">PAN *</label>
+                <input
+                  {...register('pan')}
+                  type="text"
+                  maxLength={10}
+                  className={`w-full px-3 py-2 border rounded-md shadow-sm uppercase focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
+                    errors.pan ? 'border-red-300' : 'border-gray-300'
+                  }`}
+                />
+                {errors.pan && <p className="mt-1 text-sm text-red-600">{errors.pan.message}</p>}
+              </div>
+            )}
 
             {/* Billing Address */}
             <div className="mb-6">

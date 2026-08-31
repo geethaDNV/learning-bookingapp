@@ -16,6 +16,7 @@ The customer form page (`CustomerFormPage`) handles **create** and **edit** work
 import { z } from 'zod';
 
 const customerSchema = z.object({
+  customerType: z.enum(['business', 'individual']),
   displayName: z.string()
     .min(2, 'Name must be at least 2 characters'),
   email: z.string()
@@ -26,12 +27,23 @@ const customerSchema = z.object({
     .optional()
     .or(z.literal('')),
   gstin: z.string()
-    .max(15, 'GSTIN must be 15 characters or less')
+    .regex(GSTIN_REGEX, 'Invalid GSTIN format')
+    .optional()
+    .or(z.literal('')),
+  pan: z.string()
+    .regex(PAN_REGEX, 'Invalid PAN format')
     .optional()
     .or(z.literal('')),
   billingAddress: z.string()
     .optional()
     .or(z.literal('')),
+}).superRefine((value, context) => {
+  if (value.customerType === 'business' && !value.gstin) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['gstin'], message: 'GSTIN is required for a business customer' });
+  }
+  if (value.customerType === 'individual' && !value.pan) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['pan'], message: 'PAN is required for an individual customer' });
+  }
 });
 
 type CustomerFormData = z.infer<typeof customerSchema>;
@@ -160,9 +172,13 @@ export const CustomerFormPage: React.FC = () => {
 </div>
 ```
 
-### Phone, GSTIN, Billing Address
+### Customer Type and Tax Identifier
 
-Similar pattern to email (optional fields).
+The form defaults to **Business** and shows a required GSTIN field. A valid 15-character GSTIN enables **Search GSTIN**, which calls `GET /api/v1/customers/prefill/:gstin` and fills the display name and billing address when the learning lookup has a match. This control is available in both create and edit modes.
+
+Selecting **Individual** hides the GSTIN lookup and instead shows a required 10-character PAN field. On submit, the form sends only the identifier that applies to the selected customer type.
+
+The learning API contains deterministic sample lookup data for `29AABCT1234H1Z5` and `18AABCT5678H1Z0`; production replaces this with a GSTIN provider.
 
 ## Form Submission Flow
 
@@ -203,13 +219,15 @@ Billing Address: 123 Business Street, Mumbai
 - ✅ displayName: 16 chars (>= 2)
 - ✅ email: valid format
 - ✅ phone: present (optional)
-- ✅ gstin: 15 chars (<= 15)
+- ✅ customerType: `business`
+- ✅ gstin: valid 15-character GSTIN
 - ✅ billingAddress: present (optional)
 
 **Submitted Payload**:
 ```json
 {
   "displayName": "Acme Corporation",
+  "customerType": "business",
   "email": "contact@acme.com",
   "phone": "+91-9876543210",
   "gstin": "29AABCT1234H1Z5",
@@ -234,6 +252,8 @@ Billing Address: 123 Business Street, Mumbai
 **Form Pre-fill**:
 - `useEffect` fetches customer by `publicId`
 - `reset(customer)` populates all fields
+- Business customers can search GSTIN again to refresh the available business details
+- Individual customers use PAN and cannot use the GSTIN lookup
 - User modifies fields
 - Submit triggers `updateCustomer` thunk
 

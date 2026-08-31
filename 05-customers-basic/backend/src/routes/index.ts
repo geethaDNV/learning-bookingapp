@@ -19,6 +19,11 @@ export function registerCustomerRoutes(router: Router, controller: ICustomerCont
     controller.autocompleteCustomers(req, res)
   );
 
+  // Look up business details by GSTIN before the parameterized customer route.
+  router.get('/api/v1/customers/prefill/:gstin', (req: Request, res: Response) =>
+    controller.getCustomerPrefill(req, res)
+  );
+
   // Get customer by public ID
   router.get('/api/v1/customers/:publicId', (req: Request, res: Response) =>
     controller.getCustomer(req, res)

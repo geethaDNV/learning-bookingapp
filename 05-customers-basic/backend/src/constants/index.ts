@@ -3,6 +3,7 @@
 export const CUSTOMER_RESPONSE_MESSAGES = {
   FETCH_ALL_SUCCESS: 'Customers retrieved successfully',
   FETCH_ONE_SUCCESS: 'Customer retrieved successfully',
+  AUTOCOMPLETE_SUCCESS: 'Autocomplete results retrieved',
   CREATE_SUCCESS: 'Customer created successfully',
   UPDATE_SUCCESS: 'Customer updated successfully',
   STATUS_UPDATE_SUCCESS: 'Customer status updated successfully',

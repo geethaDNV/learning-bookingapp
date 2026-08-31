@@ -86,61 +86,11 @@ Autocomplete auto-selects the new customer
 
 6. **Test**: Create customer with full address
 
-## Exercise 3: GSTIN Prefill from API (Stub)
+## Exercise 3: Replace the GSTIN Lookup Data Source
 
-**Goal**: When user enters a valid GSTIN, prefill business name from an API.
+**Goal**: Replace the learning module's deterministic `GSTIN_PREFILL_DATA` with a real GSTIN provider.
 
-**Note**: This is a stub implementation since we don't have a real GSTIN API.
-
-**Steps**:
-
-1. **Create GSTIN prefill service**:
-   ```typescript
-   // backend/src/services/gstinPrefillService.ts
-   export async function prefillFromGstin(gstin: string): Promise<{ displayName: string; state: string } | null> {
-     // Stub: In production, call GST API
-     // For now, return mock data
-     const mockData: Record<string, any> = {
-       '29AABCT1234H1Z5': {
-         displayName: 'Acme Corporation',
-         state: 'Maharashtra'
-       },
-       '18AABCT5678H1Z0': {
-         displayName: 'TechStart India Ltd',
-         state: 'Karnataka'
-       }
-     };
-     return mockData[gstin] || null;
-   }
-   ```
-
-2. **Add endpoint**:
-   ```typescript
-   // GET /api/v1/customers/prefill?gstin=29AABCT1234H1Z5
-   router.get('/api/v1/customers/prefill', (req, res) => {
-     const { gstin } = req.query;
-     const data = prefillFromGstin(gstin);
-     sendResponse(res, { data });
-   });
-   ```
-
-3. **Frontend integration**:
-   ```typescript
-   // CustomerFormPage
-   const handleGstinChange = async (gstin: string) => {
-     if (gstin.length === 15) {
-       const response = await customerService.prefillFromGstin(gstin);
-       if (response.data) {
-         reset(prev => ({
-           ...prev,
-           displayName: response.data.displayName
-         }));
-       }
-     }
-   };
-   ```
-
-4. **Test**: Enter a known GSTIN and see name auto-fill
+The module already validates GSTIN format and exposes `GET /api/v1/customers/prefill/:gstin`. Preserve that contract, add provider configuration, and keep the existing client behavior: business customers can prefill their display name and billing address, while individual customers use PAN and never call the lookup.
 
 ## Exercise 4: Add Pagination Controls
 

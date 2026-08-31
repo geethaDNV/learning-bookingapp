@@ -32,55 +32,76 @@ export const InvoiceFormPage = () => {
 ```
 CustomerAutocomplete component:
 ├─ Input value: "acme"
-└─ handleSearch("acme") triggered
+└─ useCustomerAutocomplete().setSearch("acme") triggered
 ```
 
-### Step 3: Debounce & API Call
+### Step 3: Debounce & API Call (page 1)
 
 ```typescript
-// CustomerAutocomplete.tsx
-const handleSearch = useCallback(async (query: string) => {
-  setSearch(query);
-  setLoading(true);
-  
-  const response = await customerService.autocomplete(query, 10);
-  // Call: GET /api/v1/customers/autocomplete?search=acme&limit=10
-  
-  setOptions(response.data); // [ CustomerAutocompleteOption, ... ]
-  setIsOpen(true);
-}, []);
+// useCustomerAutocomplete.ts
+useEffect(() => {
+  const timer = setTimeout(() => setDebouncedSearch(search), SEARCH_DEBOUNCE_MS);
+  return () => clearTimeout(timer);
+}, [search]);
+
+useEffect(() => {
+  const query = debouncedSearch.trim();
+  if (!query) return;
+
+  setIsLoading(true);
+  customerService
+    .autocomplete({ search: query, page: 1, limit: pageSize })
+    // Call: GET /api/v1/customers/autocomplete?search=acme&page=1&limit=10
+    .then((response) => {
+      setOptions(response.data || []);      // [ CustomerAutocompleteOption, ... ]
+      setTotal(response.meta?.total ?? 0);
+      setPage(1);
+    })
+    .finally(() => setIsLoading(false));
+}, [debouncedSearch, pageSize]);
 ```
 
 ### Step 4: Backend Search
 
-**Endpoint**: `GET /api/v1/customers/autocomplete?search=acme`
+**Endpoint**: `GET /api/v1/customers/autocomplete?search=acme&page=1&limit=10`
 
 ```typescript
 // Controller
 async autocompleteCustomers(req: Request, res: Response): Promise<void> {
   const query = parseQuery(autocompleteQuerySchema, req.query);
-  const options = await this.customerService.autocomplete(query);
-  sendResponse(res, { message: '...', data: options });
+  const result = await this.customerService.autocomplete(query);
+  sendResponse(res, {
+    message: CUSTOMER_RESPONSE_MESSAGES.AUTOCOMPLETE_SUCCESS,
+    data: result.rows,
+    meta: { total: result.total, page: result.page, pageSize: result.pageSize },
+  });
 }
 
 // Service
-async autocomplete(query): Promise<CustomerAutocompleteOption[]> {
+async autocomplete(query): Promise<CustomerAutocompleteResponse> {
   return this.repository.autocomplete(query);
 }
 
 // Repository
-async autocomplete(query): Promise<CustomerAutocompleteOption[]> {
+async autocomplete(query): Promise<CustomerAutocompleteResponse> {
+  const { search, page = 1, limit = 10 } = query;
+  const where = {
+    OR: [
+      { displayName: { contains: search, mode: 'insensitive' } },
+      // ... other fields
+    ]
+  };
+
+  const total = await this.prisma.customer.count({ where });
   const customers = await this.prisma.customer.findMany({
-    where: {
-      OR: [
-        { displayName: { contains: 'acme', mode: 'insensitive' } },
-        // ... other fields
-      ]
-    },
-    select: { id, publicId, displayName, email },
-    take: 10
+    where,
+    select: { id: true, publicId: true, displayName: true, email: true },
+    orderBy: { displayName: 'asc' },
+    skip: (page - 1) * limit,
+    take: limit,
   });
-  return customers;
+
+  return { rows: customers, total, page, pageSize: limit };
 }
 ```
 
@@ -88,19 +109,34 @@ async autocomplete(query): Promise<CustomerAutocompleteOption[]> {
 
 ```typescript
 // Response from backend
-[
-  {
-    id: 1,
-    publicId: "550e8400-e29b-41d4-a716-446655440000",
-    displayName: "Acme Corporation",
-    email: "contact@acme.com"
-  }
-]
+{
+  data: [
+    {
+      id: 1,
+      publicId: "550e8400-e29b-41d4-a716-446655440000",
+      displayName: "Acme Corporation",
+      email: "contact@acme.com"
+    }
+  ],
+  meta: { total: 14, page: 1, pageSize: 10 }
+}
 
 // CustomerAutocomplete displays:
 Dropdown:
 ├─ Acme Corporation
   contact@acme.com
+```
+
+### Step 5b: User Scrolls — Next Page Appended
+
+```typescript
+// CustomerAutocomplete.tsx — onScroll handler on the dropdown <ul>
+if (hasMore && target.scrollHeight - target.scrollTop - target.clientHeight < SCROLL_LOAD_MORE_THRESHOLD_PX) {
+  fetchMore(); // useCustomerAutocomplete: GET .../autocomplete?search=acme&page=2&limit=10
+}
+
+// useCustomerAutocomplete.ts — appends instead of replacing
+setOptions((prev) => [...prev, ...(response.data || [])]);
 ```
 
 ### Step 6: User Clicks "Acme Corporation"
@@ -109,8 +145,7 @@ Dropdown:
 // CustomerAutocomplete.tsx
 const handleSelect = (option: CustomerAutocompleteOption) => {
   onSelect(option);  // Call prop callback
-  setSearch('');
-  setOptions([]);
+  clear();           // useCustomerAutocomplete: resets search, options, total, page
   setIsOpen(false);
 };
 
@@ -273,7 +308,7 @@ Invoice stored with customer data as of creation time
 ## Types Through the Stack
 
 ```typescript
-// Backend AutocompleteOption
+// Backend AutocompleteOption (one row)
 interface CustomerAutocompleteOption {
   id: number;
   publicId: string;  // UUID
@@ -281,10 +316,18 @@ interface CustomerAutocompleteOption {
   email: string | null;
 }
 
+// Backend paginated response (repository/service/controller data)
+interface CustomerAutocompleteResponse {
+  rows: CustomerAutocompleteOption[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
 // Frontend Component Prop
 interface CustomerAutocompleteProps {
   value: CustomerAutocompleteOption | null;
-  onSelect: (customer: CustomerAutocompleteOption) => void;
+  onSelect: (customer: CustomerAutocompleteOption | null) => void;
 }
 
 // Invoice Create Payload (future)

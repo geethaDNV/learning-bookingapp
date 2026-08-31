@@ -1,12 +1,14 @@
-// Customer Autocomplete Component
+// Customer Autocomplete Component — debounced server search with infinite-scroll paging
 
-import React, { useState, useCallback } from 'react';
-import { customerService } from '@services/customerService';
+import React from 'react';
+import { useCustomerAutocomplete } from '@hooks/useCustomerAutocomplete';
 import type { CustomerAutocompleteOption } from '@types';
+
+const SCROLL_LOAD_MORE_THRESHOLD_PX = 60;
 
 interface CustomerAutocompleteProps {
   value: CustomerAutocompleteOption | null;
-  onSelect: (customer: CustomerAutocompleteOption) => void;
+  onSelect: (customer: CustomerAutocompleteOption | null) => void;
   placeholder?: string;
 }
 
@@ -15,47 +17,18 @@ export const CustomerAutocomplete: React.FC<CustomerAutocompleteProps> = ({
   onSelect,
   placeholder = 'Search customers by name, email, phone, or GSTIN...',
 }) => {
-  const [search, setSearch] = useState('');
-  const [options, setOptions] = useState<CustomerAutocompleteOption[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [isOpen, setIsOpen] = useState(false);
-
-  // Debounced search handler
-  const handleSearch = useCallback(async (query: string) => {
-    setSearch(query);
-
-    if (!query.trim()) {
-      setOptions([]);
-      setIsOpen(false);
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const response = await customerService.autocomplete(query, 10);
-      if (response.success) {
-        setOptions(response.data || []);
-        setIsOpen(true);
-      }
-    } catch (error) {
-      console.error('Autocomplete error:', error);
-      setOptions([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const { search, setSearch, options, isLoading, isLoadingMore, hasMore, fetchMore, clear } = useCustomerAutocomplete();
+  const [isOpen, setIsOpen] = React.useState(false);
 
   const handleSelect = (option: CustomerAutocompleteOption) => {
     onSelect(option);
-    setSearch('');
-    setOptions([]);
+    clear();
     setIsOpen(false);
   };
 
   const handleClear = () => {
     onSelect(null);
-    setSearch('');
-    setOptions([]);
+    clear();
     setIsOpen(false);
   };
 
@@ -65,7 +38,10 @@ export const CustomerAutocomplete: React.FC<CustomerAutocompleteProps> = ({
         <input
           type="text"
           value={search || (value ? value.displayName : '')}
-          onChange={(e) => handleSearch(e.target.value)}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setIsOpen(true);
+          }}
           onFocus={() => search && setIsOpen(true)}
           placeholder={placeholder}
           className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
@@ -80,20 +56,28 @@ export const CustomerAutocomplete: React.FC<CustomerAutocompleteProps> = ({
         )}
       </div>
 
-      {isOpen && (
+      {isOpen && search && (
         <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg">
-          {loading && (
+          {isLoading && (
             <div className="px-3 py-2 text-sm text-gray-500">Searching...</div>
           )}
 
-          {!loading && options.length === 0 && search && (
+          {!isLoading && options.length === 0 && (
             <div className="px-3 py-2 text-sm text-gray-500">
               No customers found
             </div>
           )}
 
-          {!loading && options.length > 0 && (
-            <ul className="max-h-60 overflow-auto">
+          {!isLoading && options.length > 0 && (
+            <ul
+              className="max-h-60 overflow-auto"
+              onScroll={(e) => {
+                const target = e.currentTarget;
+                if (hasMore && target.scrollHeight - target.scrollTop - target.clientHeight < SCROLL_LOAD_MORE_THRESHOLD_PX) {
+                  fetchMore();
+                }
+              }}
+            >
               {options.map((option) => (
                 <li key={option.publicId}>
                   <button
@@ -111,6 +95,9 @@ export const CustomerAutocomplete: React.FC<CustomerAutocompleteProps> = ({
                   </button>
                 </li>
               ))}
+              {isLoadingMore && (
+                <li className="px-3 py-2 text-sm text-gray-500">Loading more...</li>
+              )}
             </ul>
           )}
         </div>

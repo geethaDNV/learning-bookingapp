@@ -2,17 +2,23 @@
 
 ## Purpose
 
-The autocomplete endpoint powers **live search** as a user types in a form field. It:
+The autocomplete endpoint powers **live, paginated search** as a user types in a form field and scrolls
+through results. It:
 
 1. **Searches by partial input** (name, email, phone, GSTIN)
-2. **Returns limited results** (e.g., 10) for fast UI responsiveness
-3. **Filters by status** (only active customers)
+2. **Paginates results** (server-side, page-based) so the dropdown can infinite-scroll instead of
+   dumping the whole match set at once
+3. **Filters by status** (only active customers by default)
 4. **Shapes response for UI** (minimal fields needed)
+
+Unlike the general `search`/`list` endpoints, autocomplete is **always server-paginated** — there is no
+client-side "small dataset" fast path here, since a search-as-you-type dropdown always wants bounded,
+incremental pages.
 
 ## Endpoint
 
 ```
-GET /api/v1/customers/autocomplete?search=acme&limit=10&isActive=true
+GET /api/v1/customers/autocomplete?search=acme&page=1&limit=10&isActive=true
 ```
 
 ## Request Parameters
@@ -20,12 +26,13 @@ GET /api/v1/customers/autocomplete?search=acme&limit=10&isActive=true
 | Parameter | Type | Default | Required | Description |
 |-----------|------|---------|----------|-------------|
 | `search` | string | - | **Yes** | Partial search term (min 1 char) |
-| `limit` | number | 10 | No | Max results (1-50) |
+| `page` | number | 1 | No | Page number (1-based) |
+| `limit` | number | 10 | No | Page size / max results per page (1-50) |
 | `isActive` | boolean | true | No | Filter by active status |
 
 ## Request Examples
 
-### Basic Search by Name
+### Basic Search by Name (page 1)
 
 ```bash
 GET /api/v1/customers/autocomplete?search=acme
@@ -49,14 +56,22 @@ GET /api/v1/customers/autocomplete?search=acme
       "displayName": "Acme Solutions",
       "email": "info@acmesolutions.com"
     }
-  ]
+  ],
+  "meta": {
+    "total": 14,
+    "page": 1,
+    "pageSize": 10
+  }
 }
 ```
 
-### Search by Email
+`meta.total` is the full match count for the search term — the frontend uses it to know whether more
+pages exist (`options.length < total`).
+
+### Loading the Next Page (infinite scroll)
 
 ```bash
-GET /api/v1/customers/autocomplete?search=contact@acme.com
+GET /api/v1/customers/autocomplete?search=acme&page=2&limit=10
 ```
 
 **Response**:
@@ -65,14 +80,23 @@ GET /api/v1/customers/autocomplete?search=contact@acme.com
   "success": true,
   "message": "Autocomplete results retrieved",
   "data": [
-    {
-      "id": 1,
-      "publicId": "550e8400-e29b-41d4-a716-446655440000",
-      "displayName": "Acme Corporation",
-      "email": "contact@acme.com"
-    }
-  ]
+    { "id": 11, "publicId": "550e8400-...", "displayName": "Acme Widgets", "email": null }
+  ],
+  "meta": {
+    "total": 14,
+    "page": 2,
+    "pageSize": 10
+  }
 }
+```
+
+The frontend appends these rows to the already-displayed list rather than replacing it (see
+[07. Customer Autocomplete UI](07-customer-autocomplete-ui.md)).
+
+### Search by Email
+
+```bash
+GET /api/v1/customers/autocomplete?search=contact@acme.com
 ```
 
 ### Search by Phone
@@ -81,51 +105,19 @@ GET /api/v1/customers/autocomplete?search=contact@acme.com
 GET /api/v1/customers/autocomplete?search=9876543210
 ```
 
-**Response**:
-```json
-{
-  "success": true,
-  "message": "Autocomplete results retrieved",
-  "data": [
-    {
-      "id": 5,
-      "publicId": "550e8400-e29b-41d4-a716-446655440004",
-      "displayName": "Premium Services Group",
-      "email": "hello@premiumservices.com"
-    }
-  ]
-}
-```
-
 ### Search by GSTIN
 
 ```bash
 GET /api/v1/customers/autocomplete?search=29AABCT1234H1Z5
 ```
 
-**Response**:
-```json
-{
-  "success": true,
-  "message": "Autocomplete results retrieved",
-  "data": [
-    {
-      "id": 1,
-      "publicId": "550e8400-e29b-41d4-a716-446655440000",
-      "displayName": "Acme Corporation",
-      "email": "contact@acme.com"
-    }
-  ]
-}
-```
-
-### With Limit
+### With a Smaller Page Size
 
 ```bash
 GET /api/v1/customers/autocomplete?search=a&limit=5
 ```
 
-Returns up to 5 results (instead of default 10).
+Returns up to 5 results per page (instead of default 10).
 
 ### Include Inactive
 
@@ -146,11 +138,14 @@ GET /api/v1/customers/autocomplete?search=nonexistent
 {
   "success": true,
   "message": "Autocomplete results retrieved",
-  "data": []
+  "data": [],
+  "meta": { "total": 0, "page": 1, "pageSize": 10 }
 }
 ```
 
-## Response Shape: `CustomerAutocompleteOption`
+## Response Shapes
+
+### `CustomerAutocompleteOption` (one row)
 
 ```typescript
 interface CustomerAutocompleteOption {
@@ -168,6 +163,20 @@ interface CustomerAutocompleteOption {
 - `email` for context in dropdown
 
 The full `Customer` record is fetched **after** selection (separate GET request).
+
+### `CustomerAutocompleteResponse` (repository/service return shape)
+
+```typescript
+interface CustomerAutocompleteResponse {
+  rows: CustomerAutocompleteOption[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+```
+
+The controller unwraps this into `{ data: rows, meta: { total, page, pageSize } }`, mirroring the
+`getCustomers`/`search` list endpoints' pagination shape.
 
 ## Validation Errors
 
@@ -201,9 +210,11 @@ GET /api/v1/customers/autocomplete?search=acme&limit=1000
 
 ## Implementation in Repository
 
+**File**: `backend/src/repositories/customerRepository.ts`
+
 ```typescript
-async autocomplete(query: CustomerAutocompleteQuery): Promise<CustomerAutocompleteOption[]> {
-  const { search, limit = 10, isActive } = query;
+async autocomplete(query: CustomerAutocompleteQuery): Promise<CustomerAutocompleteResponse> {
+  const { search, page = 1, limit = 10, isActive } = query;
 
   const where: any = {
     OR: [
@@ -218,6 +229,9 @@ async autocomplete(query: CustomerAutocompleteQuery): Promise<CustomerAutocomple
     where.isActive = isActive;
   }
 
+  const total = await this.prisma.customer.count({ where });
+  const skip = (page - 1) * limit;
+
   const customers = await this.prisma.customer.findMany({
     where,
     select: {
@@ -227,34 +241,38 @@ async autocomplete(query: CustomerAutocompleteQuery): Promise<CustomerAutocomple
       email: true,
     },
     orderBy: { displayName: 'asc' },
+    skip,
     take: limit,
   });
 
-  return customers;
+  return { rows: customers, total, page, pageSize: limit };
 }
 ```
 
 **Key Points**:
 - `select: { id, publicId, displayName, email }` returns only needed fields
 - `OR` searches across multiple fields (case-insensitive)
-- `take: limit` restricts results
-- `orderBy: { displayName: 'asc' }` alphabetical order for predictable UX
+- `count({ where })` + `skip`/`take` gives real page-based pagination (same pattern as `search()`)
+- `orderBy: { displayName: 'asc' }` alphabetical order for predictable UX and stable paging
 
 ## Frontend Integration
 
-The `CustomerAutocomplete` component uses this endpoint:
+The `customerService.autocomplete()` method and the `useCustomerAutocomplete` hook consume this
+endpoint:
 
 ```typescript
-async autocomplete(search: string, limit: number = 10): Promise<ApiResponse<CustomerAutocompleteOption[]>> {
+// frontend/src/services/customerService.ts
+async autocomplete(query: CustomerAutocompleteQuery): Promise<ApiResponse<CustomerAutocompleteOption[]>> {
   const response = await this.api.get<ApiResponse<CustomerAutocompleteOption[]>>(
     '/v1/customers/autocomplete',
-    { params: { search, limit, isActive: true } }
+    { params: { isActive: true, ...query } }
   );
   return response.data;
 }
 ```
 
-See [07. Customer Autocomplete UI](07-customer-autocomplete-ui.md) for debouncing and loading states.
+See [07. Customer Autocomplete UI](07-customer-autocomplete-ui.md) for debouncing, infinite-scroll
+paging, and loading states.
 
 ---
 

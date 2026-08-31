@@ -30,7 +30,7 @@ Request → Controller
 
 ## Layer 1: Repository (Data Access)
 
-**File**: `backend/src/repositories/index.ts`
+**File**: `backend/src/repositories/customerRepository.ts` (barrel-exported via `repositories/index.ts`)
 
 The repository implements `ICustomerRepository` interface:
 
@@ -44,7 +44,7 @@ export interface ICustomerRepository {
   findAll(filters?: { isActive?: boolean }): Promise<Customer[]>;
   findPaged(...): Promise<Customer[]>;
   search(query: CustomerListQuery): Promise<CustomerListResponse>;
-  autocomplete(query: CustomerAutocompleteQuery): Promise<CustomerAutocompleteOption[]>;
+  autocomplete(query: CustomerAutocompleteQuery): Promise<CustomerAutocompleteResponse>;
   update(publicId: string, payload: UpdateCustomerPayload): Promise<Customer | null>;
   setStatus(publicId: string, isActive: boolean): Promise<Customer | null>;
   count(filters?: { isActive?: boolean; search?: string }): Promise<number>;
@@ -94,7 +94,7 @@ async search(query: CustomerListQuery): Promise<CustomerListResponse> {
 
 ## Layer 2: Service (Business Logic)
 
-**File**: `backend/src/services/index.ts`
+**File**: `backend/src/services/customerService.ts` (barrel-exported via `services/index.ts`)
 
 The service implements `ICustomerService` and adds validation:
 
@@ -105,7 +105,7 @@ export interface ICustomerService {
   getByPublicId(publicId: string): Promise<Customer | null>;
   listAll(filters?: { isActive?: boolean }): Promise<Customer[]>;
   search(query: CustomerListQuery): Promise<CustomerListResponse>;
-  autocomplete(query: CustomerAutocompleteQuery): Promise<CustomerAutocompleteOption[]>;
+  autocomplete(query: CustomerAutocompleteQuery): Promise<CustomerAutocompleteResponse>;
   update(publicId: string, payload: UpdateCustomerPayload): Promise<Customer | null>;
   setStatus(publicId: string, isActive: boolean): Promise<Customer | null>;
 }
@@ -143,7 +143,7 @@ async create(payload: CreateCustomerPayload): Promise<Customer> {
 
 ## Layer 3: Controller (HTTP Handler)
 
-**File**: `backend/src/controllers/index.ts`
+**File**: `backend/src/controllers/customerController.ts` (barrel-exported via `controllers/index.ts`)
 
 The controller implements `ICustomerController`:
 

@@ -1,12 +1,19 @@
 # 07. Customer Autocomplete UI
 
-## Component: `CustomerAutocomplete.tsx`
+## Component: `CustomerAutocomplete.tsx` + `useCustomerAutocomplete` hook
 
 The autocomplete component powers live customer selection with:
 - **Debounced search** to avoid flooding the backend
-- **Loading state** while searching
+- **Server-side infinite scroll** — the dropdown fetches the next page as the user scrolls near the
+  bottom, instead of loading all matches up front
+- **Loading state** while searching, and a separate **"loading more"** state while paging
 - **Empty state** when no results
 - **Selected option display** to confirm choice
+
+The data-fetching logic (debounce, paging, stale-request guarding) lives in a dedicated hook,
+`useCustomerAutocomplete`, so the component itself only renders UI. This mirrors production's
+`useCustomerQuery` hook, minus the client/server "small dataset" strategy switch — autocomplete here is
+**always server-paginated**.
 
 ## Usage
 
@@ -26,7 +33,7 @@ export const MyForm = () => {
         onSelect={setSelectedCustomer}
         placeholder="Search customers by name, email, phone, or GSTIN..."
       />
-      
+
       {selectedCustomer && (
         <p>Selected: {selectedCustomer.displayName}</p>
       )}
@@ -35,89 +42,173 @@ export const MyForm = () => {
 };
 ```
 
+A working example lives at `frontend/src/pages/CustomerAutocompleteDemoPage.tsx`, routed at
+`/customers/autocomplete-demo`.
+
 ## Props
 
 ```typescript
 interface CustomerAutocompleteProps {
-  value: CustomerAutocompleteOption | null;      // Currently selected customer
-  onSelect: (customer: CustomerAutocompleteOption) => void;  // Callback on selection
-  placeholder?: string;                            // Input placeholder
+  value: CustomerAutocompleteOption | null;              // Currently selected customer
+  onSelect: (customer: CustomerAutocompleteOption | null) => void;  // Callback on selection/clear
+  placeholder?: string;                                    // Input placeholder
 }
 ```
 
-## Component Flow
+## The `useCustomerAutocomplete` Hook
+
+**File**: `frontend/src/hooks/useCustomerAutocomplete.ts`
+
+```typescript
+export interface UseCustomerAutocompleteResult {
+  search: string;
+  setSearch: (value: string) => void;
+  options: CustomerAutocompleteOption[];
+  total: number;
+  isLoading: boolean;
+  isLoadingMore: boolean;
+  hasMore: boolean;
+  fetchMore: () => void;
+  clear: () => void;
+}
+
+export function useCustomerAutocomplete(pageSize?: number): UseCustomerAutocompleteResult;
+```
+
+It owns all the state the component needs: the raw/debounced search term, the accumulated `options`
+list, pagination bookkeeping, and loading flags.
+
+## Component + Hook Flow
 
 ```
 User types in search input
     ↓
-handleSearch() runs
+setSearch(value) — updates input immediately, no network call yet
     ↓
-Debounce (300ms default) - wait for user to stop typing
+Debounce (350ms) — wait for user to stop typing
     ↓
-Call customerService.autocomplete(query)
+debouncedSearch changes → hook fetches page 1, REPLACES options
     ↓
-Set loading = true
+Set isLoading = true → Backend returns { rows, total } → isLoading = false
     ↓
-Backend returns results
+User scrolls the dropdown near the bottom
     ↓
-Set loading = false
-Set options = results
-Set isOpen = true
+onScroll handler checks hasMore → calls fetchMore()
     ↓
-User clicks option
+Set isLoadingMore = true → Backend returns next page → APPENDS to options
     ↓
-handleSelect() runs
+User clicks an option
     ↓
-Call onSelect(option)
-    ↓
-Clear search
-Close dropdown
+handleSelect() runs → onSelect(option) → clear() resets search/options
 ```
 
 ## Implementation Details
 
-### Debounced Search
+### Debounced Search (in the hook)
 
 ```typescript
-const handleSearch = useCallback(async (query: string) => {
-  setSearch(query);
-
-  if (!query.trim()) {
-    setOptions([]);
-    setIsOpen(false);
-    return;
-  }
-
-  setLoading(true);
-  try {
-    const response = await customerService.autocomplete(query, 10);
-    if (response.success) {
-      setOptions(response.data || []);
-      setIsOpen(true);
-    }
-  } catch (error) {
-    console.error('Autocomplete error:', error);
-    setOptions([]);
-  } finally {
-    setLoading(false);
-  }
-}, []);
+useEffect(() => {
+  const timer = setTimeout(() => setDebouncedSearch(search), SEARCH_DEBOUNCE_MS);
+  return () => clearTimeout(timer);
+}, [search]);
 ```
 
 **Why debounce?**
 - Don't search on every keystroke
-- Wait 300ms after user stops typing
+- Wait 350ms after user stops typing
 - Reduces backend load
 - Better UX (less flickering)
+
+### Fresh Search Replaces Page 1
+
+```typescript
+useEffect(() => {
+  const query = debouncedSearch.trim();
+  if (!query) {
+    setOptions([]);
+    setTotal(0);
+    setPage(1);
+    return;
+  }
+
+  const requestId = ++requestIdRef.current;
+  setIsLoading(true);
+
+  customerService
+    .autocomplete({ search: query, page: 1, limit: pageSize })
+    .then((response) => {
+      if (requestId !== requestIdRef.current) return; // stale response guard
+      setOptions(response.data || []);
+      setTotal(response.meta?.total ?? 0);
+      setPage(1);
+    })
+    .finally(() => {
+      if (requestId === requestIdRef.current) setIsLoading(false);
+    });
+}, [debouncedSearch, pageSize]);
+```
+
+`requestIdRef` discards responses from a search that's already been superseded by a newer one (e.g.
+the user kept typing while an older request was still in flight).
+
+### Infinite Scroll: `fetchMore()`
+
+```typescript
+const hasMore = options.length < total;
+
+const fetchMore = useCallback(() => {
+  const query = debouncedSearch.trim();
+  if (!query || !hasMore || isLoading || isLoadingMore || fetchMoreInFlightRef.current) return;
+
+  const nextPage = page + 1;
+  fetchMoreInFlightRef.current = true;
+  setIsLoadingMore(true);
+
+  customerService
+    .autocomplete({ search: query, page: nextPage, limit: pageSize })
+    .then((response) => {
+      setOptions((prev) => [...prev, ...(response.data || [])]);
+      setTotal(response.meta?.total ?? 0);
+      setPage(nextPage);
+    })
+    .finally(() => {
+      fetchMoreInFlightRef.current = false;
+      setIsLoadingMore(false);
+    });
+}, [debouncedSearch, hasMore, isLoading, isLoadingMore, page, pageSize]);
+```
+
+**Guards against duplicate/overlapping fetches**:
+- `hasMore` — stop once every row for this search term has been loaded (`options.length >= total`)
+- `isLoading` / `isLoadingMore` — don't start a second fetch while one is in flight
+- `fetchMoreInFlightRef` — belt-and-suspenders re-entrancy guard for rapid scroll events
+
+### Scroll Trigger (in the component)
+
+```typescript
+<ul
+  className="max-h-60 overflow-auto"
+  onScroll={(e) => {
+    const target = e.currentTarget;
+    if (hasMore && target.scrollHeight - target.scrollTop - target.clientHeight < SCROLL_LOAD_MORE_THRESHOLD_PX) {
+      fetchMore();
+    }
+  }}
+>
+```
+
+When the user scrolls within `SCROLL_LOAD_MORE_THRESHOLD_PX` (60px) of the bottom of the dropdown,
+`fetchMore()` is called to append the next page.
 
 ### Dropdown States
 
 | State | Display |
 |-------|---------|
 | Idle (no search) | Hidden dropdown |
-| Searching | "Searching..." message |
+| Searching (page 1) | "Searching..." message |
 | No results | "No customers found" |
 | Has results | List of matching customers |
+| Loading more (scrolled near bottom) | "Loading more..." row appended below the list |
 | Selected | Show selected customer in a box below |
 
 ### UI Structure
@@ -126,14 +217,15 @@ const handleSearch = useCallback(async (query: string) => {
 Input Field [Search here...]
     ↓
 Dropdown (if open)
-  ├─ "Searching..." (if loading)
+  ├─ "Searching..." (if isLoading)
   ├─ "No customers found" (if no results)
-  └─ Customer List (if results)
+  └─ Customer List (scrollable, onScroll triggers fetchMore)
        ├─ Acme Corporation
        │   contact@acme.com
        ├─ Acme Solutions
        │   info@acmesolutions.com
-       └─ ...
+       ├─ ... (more pages appended as user scrolls)
+       └─ "Loading more..." (if isLoadingMore)
     ↓
 Selected Customer Box (if selected)
   Acme Corporation
@@ -153,6 +245,9 @@ Selected Customer Box (if selected)
 <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 
   rounded-md shadow-lg">
 
+// Scrollable option list (infinite scroll container)
+<ul className="max-h-60 overflow-auto" onScroll={...}>
+
 // Option item
 <button
   className="w-full text-left px-3 py-2 hover:bg-blue-50 
@@ -165,36 +260,23 @@ Selected Customer Box (if selected)
 
 ## Search Examples
 
-### Search: "acme"
+### Search: "acme" (14 total matches, page size 10)
 
 ```
 Input: [acme____]
 
-Dropdown:
+Dropdown (page 1, 10 rows):
 ├─ Acme Corporation
 │  contact@acme.com
 ├─ Acme Solutions
 │  info@acmesolutions.com
-```
+├─ ... (8 more)
 
-### Search: "9876543210" (phone)
-
-```
-Input: [9876543210____]
-
-Dropdown:
-├─ Acme Corporation
-│  contact@acme.com
-```
-
-### Search: "29AABCT" (GSTIN prefix)
-
-```
-Input: [29AABCT____]
-
-Dropdown:
-├─ Acme Corporation
-│  contact@acme.com
+User scrolls to bottom → fetchMore() → page 2 appended:
+├─ Acme Widgets
+├─ Acme Traders
+├─ Acme Holdings
+├─ Acme Retail
 ```
 
 ### Selection
@@ -227,12 +309,13 @@ User clicks the ✕ button:
 Input cleared
 Dropdown closed
 Selected box removed
+Hook state reset via clear() — search, options, total, page all reset
 onSelect callback fired with null
 ```
 
-## Integration with Customer Form
+## Integration with Another Form
 
-In `CustomerFormPage`, use autocomplete to **pre-select a customer** (future use in invoice form):
+In any form, use autocomplete to **pre-select a customer** (e.g. an invoice or quote form):
 
 ```typescript
 import { CustomerAutocomplete } from '@components/CustomerAutocomplete';
@@ -262,7 +345,8 @@ export const InvoiceFormPage = () => {
 
 ## Keyboard Navigation (Optional Enhancement)
 
-The current implementation supports **mouse selection**. To add keyboard support:
+The current implementation supports **mouse selection** and **scroll-to-load-more**. To add keyboard
+support:
 
 ```typescript
 const handleKeyDown = (e: React.KeyboardEvent) => {

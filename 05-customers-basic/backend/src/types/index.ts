@@ -3,10 +3,12 @@
 export interface Customer {
   id: number;
   publicId: string;
+  customerType: 'business' | 'individual';
   displayName: string;
   email: string | null;
   phone: string | null;
   gstin: string | null;
+  pan: string | null;
   billingAddress: string | null;
   isActive: boolean;
   createdAt: Date;
@@ -16,18 +18,22 @@ export interface Customer {
 }
 
 export interface CreateCustomerPayload {
+  customerType: 'business' | 'individual';
   displayName: string;
   email?: string;
   phone?: string;
   gstin?: string;
+  pan?: string;
   billingAddress?: string;
 }
 
 export interface UpdateCustomerPayload {
+  customerType?: 'business' | 'individual';
   displayName?: string;
   email?: string;
   phone?: string;
   gstin?: string;
+  pan?: string;
   billingAddress?: string;
   isActive?: boolean;
 }
@@ -50,6 +56,7 @@ export interface CustomerListResponse {
 
 export interface CustomerAutocompleteQuery {
   search: string;
+  page?: number;
   limit?: number;
   isActive?: boolean;
 }
@@ -59,6 +66,20 @@ export interface CustomerAutocompleteOption {
   publicId: string;
   displayName: string;
   email: string | null;
+}
+
+export interface CustomerAutocompleteResponse {
+  rows: CustomerAutocompleteOption[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface CustomerGstinPrefill {
+  displayName: string;
+  gstin: string;
+  pan: string;
+  billingAddress: string;
 }
 
 // Repository Interface
@@ -74,7 +95,7 @@ export interface ICustomerRepository {
     options?: { skip?: number; take?: number; sortBy?: string; sortOrder?: 'asc' | 'desc' }
   ): Promise<Customer[]>;
   search(query: CustomerListQuery): Promise<CustomerListResponse>;
-  autocomplete(query: CustomerAutocompleteQuery): Promise<CustomerAutocompleteOption[]>;
+  autocomplete(query: CustomerAutocompleteQuery): Promise<CustomerAutocompleteResponse>;
   update(publicId: string, payload: UpdateCustomerPayload): Promise<Customer | null>;
   setStatus(publicId: string, isActive: boolean): Promise<Customer | null>;
   count(filters?: { isActive?: boolean; search?: string }): Promise<number>;
@@ -87,7 +108,8 @@ export interface ICustomerService {
   getByPublicId(publicId: string): Promise<Customer | null>;
   listAll(filters?: { isActive?: boolean }): Promise<Customer[]>;
   search(query: CustomerListQuery): Promise<CustomerListResponse>;
-  autocomplete(query: CustomerAutocompleteQuery): Promise<CustomerAutocompleteOption[]>;
+  autocomplete(query: CustomerAutocompleteQuery): Promise<CustomerAutocompleteResponse>;
+  getPrefillByGstin(gstin: string): Promise<CustomerGstinPrefill | null>;
   update(publicId: string, payload: UpdateCustomerPayload): Promise<Customer | null>;
   setStatus(publicId: string, isActive: boolean): Promise<Customer | null>;
 }
@@ -98,6 +120,7 @@ export interface ICustomerController {
   getCustomer(req: any, res: any): Promise<void>;
   searchCustomers(req: any, res: any): Promise<void>;
   autocompleteCustomers(req: any, res: any): Promise<void>;
+  getCustomerPrefill(req: any, res: any): Promise<void>;
   createCustomer(req: any, res: any): Promise<void>;
   updateCustomer(req: any, res: any): Promise<void>;
   setCustomerStatus(req: any, res: any): Promise<void>;

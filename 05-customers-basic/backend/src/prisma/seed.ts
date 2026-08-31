@@ -5,6 +5,7 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 interface CustomerSeedData {
+  customerType: 'business';
   displayName: string;
   email: string;
   phone: string;
@@ -14,6 +15,7 @@ interface CustomerSeedData {
 
 const sampleCustomers: CustomerSeedData[] = [
   {
+    customerType: 'business',
     displayName: 'Acme Corporation',
     email: 'contact@acme.com',
     phone: '+91-9876543210',
@@ -21,6 +23,7 @@ const sampleCustomers: CustomerSeedData[] = [
     billingAddress: '123 Business Street, Mumbai, Maharashtra 400001',
   },
   {
+    customerType: 'business',
     displayName: 'TechStart India Ltd',
     email: 'info@techstart.com',
     phone: '+91-8765432109',
@@ -28,6 +31,7 @@ const sampleCustomers: CustomerSeedData[] = [
     billingAddress: '456 Innovation Park, Bangalore, Karnataka 560001',
   },
   {
+    customerType: 'business',
     displayName: 'Global Retail Solutions',
     email: 'sales@globalretail.com',
     phone: '+91-7654321098',
@@ -35,6 +39,7 @@ const sampleCustomers: CustomerSeedData[] = [
     billingAddress: '789 Commerce Hub, Delhi, Delhi 110001',
   },
   {
+    customerType: 'business',
     displayName: 'Premium Services Group',
     email: 'hello@premiumservices.com',
     phone: '+91-6543210987',
@@ -42,6 +47,7 @@ const sampleCustomers: CustomerSeedData[] = [
     billingAddress: '321 Professional Plaza, Pune, Maharashtra 411001',
   },
   {
+    customerType: 'business',
     displayName: 'Digital Solutions Enterprise',
     email: 'contact@digitalsolutions.com',
     phone: '+91-5432109876',
@@ -49,6 +55,7 @@ const sampleCustomers: CustomerSeedData[] = [
     billingAddress: '654 Tech Park, Hyderabad, Telangana 500001',
   },
   {
+    customerType: 'business',
     displayName: 'Manufacturing Hub India',
     email: 'procurement@mfghub.com',
     phone: '+91-4321098765',
@@ -56,6 +63,7 @@ const sampleCustomers: CustomerSeedData[] = [
     billingAddress: '987 Industrial Area, Surat, Gujarat 395001',
   },
   {
+    customerType: 'business',
     displayName: 'Educational Institute Plus',
     email: 'accounts@eduplusi.com',
     phone: '+91-3210987654',
@@ -63,6 +71,7 @@ const sampleCustomers: CustomerSeedData[] = [
     billingAddress: '147 Campus Road, Jaipur, Rajasthan 302001',
   },
   {
+    customerType: 'business',
     displayName: 'Healthcare Innovations Ltd',
     email: 'billing@healthcareinnovations.com',
     phone: '+91-2109876543',
@@ -70,6 +79,7 @@ const sampleCustomers: CustomerSeedData[] = [
     billingAddress: '258 Medical Center, Chennai, Tamil Nadu 600001',
   },
   {
+    customerType: 'business',
     displayName: 'Logistics & Supply Chain Co',
     email: 'orders@logisticco.com',
     phone: '+91-1098765432',
@@ -77,6 +87,7 @@ const sampleCustomers: CustomerSeedData[] = [
     billingAddress: '369 Warehouse District, Kolkata, West Bengal 700001',
   },
   {
+    customerType: 'business',
     displayName: 'Fashion & Retail Trends',
     email: 'wholesale@fashiontrends.com',
     phone: '+91-9000111222',

@@ -2,7 +2,7 @@
 
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type { RootState } from './store';
-import type { Customer, CustomerListQuery, CustomerListResponse } from '@types';
+import type { Customer, CustomerListQuery } from '@types';
 import { customerService } from '@services/customerService';
 
 export interface CustomerState {
@@ -40,13 +40,13 @@ export const fetchCustomers = createAsyncThunk(
 
 export const fetchCustomer = createAsyncThunk('customers/fetchOne', async (publicId: string) => {
   const response = await customerService.getCustomer(publicId);
-  if (!response.success) throw new Error(response.message);
+  if (!response.success || !response.data) throw new Error(response.message || 'Customer not found');
   return response.data;
 });
 
 export const createCustomer = createAsyncThunk('customers/create', async (payload: any) => {
   const response = await customerService.createCustomer(payload);
-  if (!response.success) throw new Error(response.message);
+  if (!response.success || !response.data) throw new Error(response.message || 'Failed to create customer');
   return response.data;
 });
 
@@ -54,7 +54,7 @@ export const updateCustomer = createAsyncThunk(
   'customers/update',
   async ({ publicId, payload }: { publicId: string; payload: any }) => {
     const response = await customerService.updateCustomer(publicId, payload);
-    if (!response.success) throw new Error(response.message);
+    if (!response.success || !response.data) throw new Error(response.message || 'Failed to update customer');
     return response.data;
   }
 );
@@ -63,7 +63,7 @@ export const setCustomerStatus = createAsyncThunk(
   'customers/setStatus',
   async ({ publicId, isActive }: { publicId: string; isActive: boolean }) => {
     const response = await customerService.setCustomerStatus(publicId, isActive);
-    if (!response.success) throw new Error(response.message);
+    if (!response.success || !response.data) throw new Error(response.message || 'Failed to update customer status');
     return response.data;
   }
 );
@@ -90,7 +90,11 @@ const customerSlice = createSlice({
       state.loading = false;
       state.customers = action.payload.customers;
       if (action.payload.meta) {
-        state.listMeta = action.payload.meta;
+        state.listMeta = {
+          total: action.payload.meta.total ?? state.listMeta.total,
+          page: action.payload.meta.page ?? state.listMeta.page,
+          pageSize: action.payload.meta.pageSize ?? state.listMeta.pageSize,
+        };
       }
     });
     builder.addCase(fetchCustomers.rejected, (state, action) => {

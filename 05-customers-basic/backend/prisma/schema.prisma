@@ -13,10 +13,12 @@ generator client {
 model Customer {
   id            Int       @id @default(autoincrement())
   publicId      String    @unique @default(uuid())
+  customerType  String    @default("business") @db.VarChar(20)
   displayName   String    @db.VarChar(255)
   email         String?   @db.VarChar(255)
   phone         String?   @db.VarChar(20)
   gstin         String?   @db.VarChar(15)
+  pan           String?   @db.VarChar(10)
   billingAddress String?  @db.Text
   isActive      Boolean   @default(true)
   createdAt     DateTime  @default(now())
@@ -29,6 +31,7 @@ model Customer {
   @@index([email])
   @@index([phone])
   @@index([gstin])
+  @@index([pan])
   @@index([isActive])
   @@map("customers")
 }

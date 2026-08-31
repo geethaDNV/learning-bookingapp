@@ -3,10 +3,12 @@
 export interface Customer {
   id: number;
   publicId: string;
+  customerType: 'business' | 'individual';
   displayName: string;
   email: string | null;
   phone: string | null;
   gstin: string | null;
+  pan: string | null;
   billingAddress: string | null;
   isActive: boolean;
   createdAt: string;
@@ -16,18 +18,22 @@ export interface Customer {
 }
 
 export interface CreateCustomerPayload {
+  customerType: 'business' | 'individual';
   displayName: string;
   email?: string;
   phone?: string;
   gstin?: string;
+  pan?: string;
   billingAddress?: string;
 }
 
 export interface UpdateCustomerPayload {
+  customerType?: 'business' | 'individual';
   displayName?: string;
   email?: string;
   phone?: string;
   gstin?: string;
+  pan?: string;
   billingAddress?: string;
   isActive?: boolean;
 }
@@ -53,6 +59,20 @@ export interface CustomerAutocompleteOption {
   publicId: string;
   displayName: string;
   email: string | null;
+}
+
+export interface CustomerAutocompleteQuery {
+  search: string;
+  page?: number;
+  limit?: number;
+  isActive?: boolean;
+}
+
+export interface CustomerGstinPrefill {
+  displayName: string;
+  gstin: string;
+  pan: string;
+  billingAddress: string;
 }
 
 export interface ApiResponse<T = any> {

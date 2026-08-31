@@ -24,7 +24,9 @@ Build a self-contained learning system that demonstrates:
 **Production Problem**: Invoices need to know which customer they're billing. A customer record includes:
 - `displayName` – shown in invoice header
 - `email` – for sending invoice
-- `gstin` – required for Indian GST invoices
+- `customerType` – distinguishes a business from an individual
+- `gstin` – required for business customers and can prefill business details
+- `pan` – required for individual customers
 - `billingAddress` – printed on invoice
 - `isActive` – only active customers can be invoiced
 
@@ -73,7 +75,7 @@ After this module, you will understand:
 7. ✅ How to build a typed React autocomplete component
 8. ✅ How Redux thunks coordinate async actions
 9. ✅ How forms work with React Hook Form + Zod
-10. ✅ How customer selection will integrate into invoice forms later
+10. ✅ How GSTIN lookup prefills business customer details while PAN identifies individuals
 
 ## What's Next?
 

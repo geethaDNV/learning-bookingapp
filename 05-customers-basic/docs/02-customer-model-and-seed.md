@@ -10,10 +10,12 @@ The `Customer` model defines how customer data is persisted in PostgreSQL.
 model Customer {
   id            Int       @id @default(autoincrement())
   publicId      String    @unique @default(uuid())
+  customerType  String    @default("business") @db.VarChar(20)
   displayName   String    @db.VarChar(255)
   email         String?   @db.VarChar(255)
   phone         String?   @db.VarChar(20)
   gstin         String?   @db.VarChar(15)
+  pan           String?   @db.VarChar(10)
   billingAddress String?  @db.Text
   isActive      Boolean   @default(true)
   createdAt     DateTime  @default(now())
@@ -25,6 +27,7 @@ model Customer {
   @@index([email])
   @@index([phone])
   @@index([gstin])
+  @@index([pan])
   @@index([isActive])
   @@map("customers")
 }
@@ -36,10 +39,12 @@ model Customer {
 |-------|------|----------|---------|
 | `id` | Integer | No | Auto-increment primary key |
 | `publicId` | UUID | No | External identifier (never expose `id` to frontend) |
+| `customerType` | String | No | `business` or `individual`; determines the required tax identifier |
 | `displayName` | String | No | Customer name (appears in invoice header) |
 | `email` | String | Yes | Contact email (invoice delivery, communication) |
 | `phone` | String | Yes | Contact phone number |
-| `gstin` | String | Yes | GST Registration Number (required for Indian businesses) |
+| `gstin` | String | Yes | GST Registration Number; required only for business customers |
+| `pan` | String | Yes | Permanent Account Number; required only for individual customers |
 | `billingAddress` | Text | Yes | Full billing address (printed on invoice) |
 | `isActive` | Boolean | No | Soft-active flag (only active customers for new invoices) |
 | `createdAt` | DateTime | No | Timestamp when created |
@@ -54,6 +59,7 @@ Indexes speed up searches when filtering by these fields:
 - `email` – find by email
 - `phone` – find by phone
 - `gstin` – find by GSTIN
+- `pan` – find by PAN
 - `isActive` – filter active/inactive
 
 ## Sample Seed Data

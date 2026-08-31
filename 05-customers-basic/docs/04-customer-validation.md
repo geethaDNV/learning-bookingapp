@@ -22,6 +22,7 @@ Service/Repository (guaranteed valid)
 
 ```typescript
 export const createCustomerSchema = z.object({
+  customerType: z.enum(['business', 'individual']),
   displayName: z.string()
     .min(2, 'Display name must be at least 2 characters')
     .max(255),
@@ -34,12 +35,23 @@ export const createCustomerSchema = z.object({
     .optional()
     .or(z.literal('')),
   gstin: z.string()
-    .max(15, 'GSTIN must be 15 characters or less')
+    .regex(/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/, 'Invalid GSTIN format')
+    .optional()
+    .or(z.literal('')),
+  pan: z.string()
+    .regex(/^[A-Z]{5}[0-9]{4}[A-Z]$/, 'Invalid PAN format')
     .optional()
     .or(z.literal('')),
   billingAddress: z.string()
     .optional()
     .or(z.literal('')),
+}).superRefine((value, context) => {
+  if (value.customerType === 'business' && !value.gstin) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['gstin'], message: 'GSTIN is required for a business customer' });
+  }
+  if (value.customerType === 'individual' && !value.pan) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['pan'], message: 'PAN is required for an individual customer' });
+  }
 });
 
 export type CreateCustomerInput = z.infer<typeof createCustomerSchema>;
@@ -49,10 +61,12 @@ export type CreateCustomerInput = z.infer<typeof createCustomerSchema>;
 
 ```typescript
 export const updateCustomerSchema = z.object({
+  customerType: z.enum(['business', 'individual']).optional(),
   displayName: z.string().min(2).max(255).optional(),
   email: z.string().email().optional().or(z.literal('')),
   phone: z.string().max(20).optional().or(z.literal('')),
-  gstin: z.string().max(15).optional().or(z.literal('')),
+  gstin: z.string().regex(/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/, 'Invalid GSTIN format').optional().or(z.literal('')),
+  pan: z.string().regex(/^[A-Z]{5}[0-9]{4}[A-Z]$/, 'Invalid PAN format').optional().or(z.literal('')),
   billingAddress: z.string().optional().or(z.literal('')),
   isActive: z.boolean().optional(),
 });

@@ -1,9 +1,9 @@
 // Utility functions
 
 import type { Response } from 'express';
-import { ZodSchema, ZodError } from 'zod';
+import { ZodType, ZodTypeDef, ZodError } from 'zod';
 
-export function parseBody<T>(schema: ZodSchema, data: unknown): T {
+export function parseBody<T>(schema: ZodType<T, ZodTypeDef, any>, data: unknown): T {
   try {
     return schema.parse(data);
   } catch (error) {
@@ -15,11 +15,11 @@ export function parseBody<T>(schema: ZodSchema, data: unknown): T {
   }
 }
 
-export function parseParams<T>(schema: ZodSchema, data: unknown): T {
+export function parseParams<T>(schema: ZodType<T, ZodTypeDef, any>, data: unknown): T {
   return parseBody(schema, data);
 }
 
-export function parseQuery<T>(schema: ZodSchema, data: unknown): T {
+export function parseQuery<T>(schema: ZodType<T, ZodTypeDef, any>, data: unknown): T {
   return parseBody(schema, data);
 }
 

@@ -104,7 +104,7 @@ export interface ICustomerRepository {
   findAll(filters?: { isActive?: boolean }): Promise<Customer[]>;
   findPaged(...): Promise<Customer[]>;
   search(query: CustomerListQuery): Promise<CustomerListResponse>;
-  autocomplete(query: CustomerAutocompleteQuery): Promise<CustomerAutocompleteOption[]>;
+  autocomplete(query: CustomerAutocompleteQuery): Promise<CustomerAutocompleteResponse>;
   update(publicId: string, payload: UpdateCustomerPayload): Promise<Customer | null>;
   setStatus(publicId: string, isActive: boolean): Promise<Customer | null>;
   count(filters?: { isActive?: boolean; search?: string }): Promise<number>;
@@ -125,7 +125,7 @@ export interface ICustomerService {
   getByPublicId(publicId: string): Promise<Customer | null>;
   listAll(filters?: { isActive?: boolean }): Promise<Customer[]>;
   search(query: CustomerListQuery): Promise<CustomerListResponse>;
-  autocomplete(query: CustomerAutocompleteQuery): Promise<CustomerAutocompleteOption[]>;
+  autocomplete(query: CustomerAutocompleteQuery): Promise<CustomerAutocompleteResponse>;
   update(publicId: string, payload: UpdateCustomerPayload): Promise<Customer | null>;
   setStatus(publicId: string, isActive: boolean): Promise<Customer | null>;
 }
@@ -230,12 +230,12 @@ export const MyComponent = () => {
 
 ### Component Props with Typing
 
-**File**: `frontend/src/components/CustomerAutocomplete.tsx`
+**File**: `frontend/src/components/CustomerAutocomplete.tsx` (data fetching delegated to `frontend/src/hooks/useCustomerAutocomplete.ts`)
 
 ```typescript
 interface CustomerAutocompleteProps {
   value: CustomerAutocompleteOption | null;
-  onSelect: (customer: CustomerAutocompleteOption) => void;
+  onSelect: (customer: CustomerAutocompleteOption | null) => void;
   placeholder?: string;
 }
 

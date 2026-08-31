@@ -6,15 +6,16 @@ import type {
   CreateCustomerPayload,
   UpdateCustomerPayload,
   CustomerListQuery,
-  CustomerListResponse,
   CustomerAutocompleteOption,
+  CustomerAutocompleteQuery,
+  CustomerGstinPrefill,
   ApiResponse,
 } from '@types';
 
 export class CustomerService {
   private api: AxiosInstance;
 
-  constructor(baseURL: string = '/api') {
+  constructor(baseURL: string = 'http://localhost:3001/api') {
     this.api = axios.create({
       baseURL,
       headers: {
@@ -42,10 +43,17 @@ export class CustomerService {
     return response.data;
   }
 
-  async autocomplete(search: string, limit: number = 10): Promise<ApiResponse<CustomerAutocompleteOption[]>> {
+  async autocomplete(query: CustomerAutocompleteQuery): Promise<ApiResponse<CustomerAutocompleteOption[]>> {
     const response = await this.api.get<ApiResponse<CustomerAutocompleteOption[]>>('/v1/customers/autocomplete', {
-      params: { search, limit, isActive: true },
+      params: { isActive: true, ...query },
     });
+    return response.data;
+  }
+
+  async getPrefillByGstin(gstin: string): Promise<ApiResponse<CustomerGstinPrefill>> {
+    const response = await this.api.get<ApiResponse<CustomerGstinPrefill>>(
+      `/v1/customers/prefill/${gstin}`
+    );
     return response.data;
   }
 

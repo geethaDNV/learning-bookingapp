@@ -11,9 +11,9 @@ This module is based on **real production code** from BookKeepingApp. This doc m
 | `src/types/index.ts` | `backend/types/interfaces/customers.ts` + `backend/di/types.ts` | Customer interfaces & DI types |
 | `src/schemas/index.ts` | `backend/schemas/customers/index.ts` | Zod validation schemas |
 | `src/constants/index.ts` | `backend/constants/customers/index.ts` | Error/response messages |
-| `src/repositories/index.ts` | `backend/repositories/customers/customerRepository.ts` | Data access layer |
-| `src/services/index.ts` | `backend/services/customers/customerService.ts` | Business logic layer |
-| `src/controllers/index.ts` | `backend/controllers/customers/customersController.ts` | HTTP handlers |
+| `src/repositories/customerRepository.ts` | `backend/repositories/customers/customerRepository.ts` | Data access layer |
+| `src/services/customerService.ts` | `backend/services/customers/customerService.ts` | Business logic layer |
+| `src/controllers/customerController.ts` | `backend/controllers/customers/customersController.ts` | HTTP handlers |
 | `src/routes/index.ts` | `backend/routes/customers.ts` | Route registration |
 | `src/di/index.ts` | `backend/di/container.ts` + `backend/di/index.ts` | DI container setup |
 | `src/config/index.ts` | `backend/config/index.ts` | Configuration loading |
@@ -30,6 +30,7 @@ This module is based on **real production code** from BookKeepingApp. This doc m
 | `src/store/customerSlice.ts` | `frontend/src/features/customers/store/customerSlice.ts` | Redux slice |
 | `src/store/store.ts` | `frontend/src/store/store.ts` | Redux store config |
 | `src/components/CustomerAutocomplete.tsx` | `frontend/src/features/customers/components/CustomerAutocomplete.tsx` | Autocomplete component |
+| `src/hooks/useCustomerAutocomplete.ts` | `frontend/src/features/customers/hooks/useCustomerQuery.ts` | Debounced search + infinite-scroll paging hook (production's hook also supports a client/server strategy switch; the learning version is server-only) |
 | `src/pages/CustomerListPage.tsx` | `frontend/src/features/customers/pages/CustomerListPage.tsx` | Customer list view |
 | `src/pages/CustomerDetailPage.tsx` | `frontend/src/features/customers/pages/CustomerDetailPage.tsx` | Customer detail view |
 | `src/pages/CustomerFormPage.tsx` | `frontend/src/features/customers/pages/CustomerFormPage.tsx` | Customer form (create/edit) |
@@ -164,9 +165,8 @@ Once you've mastered this module, you're ready for:
 ### Backend
 
 - **Multi-tenancy**: `orgId` in all queries
-- **Pagination strategies**: CLIENT vs SERVER mode
-- **Data strategies**: Full load vs paged load decisions
-- **GSTIN validation**: Against GSTIN database API
+- **Client/server list pagination strategy**: below a threshold the backend returns the full dataset once and the list page filters/paginates locally; the learning module's `getCustomers`/`search` endpoints are always server-paged (autocomplete is server-paged in both — see below)
+- **GSTIN validation and prefill**: Learning uses strict local validation plus deterministic sample data; production calls a configurable GSTIN provider
 - **Address autocomplete**: Google Places API integration
 - **Soft deletes**: Logical deletion (never lose data)
 - **Audit trails**: Track all changes with user + timestamp
@@ -186,7 +186,7 @@ Once you've mastered this module, you're ready for:
 - **Activity timeline**: Show all customer changes
 - **Related records**: Show customer's invoices, quotes, orders
 - **Address lookup**: Google Places integration in form
-- **GSTIN prefill**: Fetch business name from GSTIN API
+- **GSTIN prefill**: Learning has a compact lookup that fills name and address; production adds a preview, confirmation, and broader tax/address fields
 - **Duplicate detection**: Warn if entering similar customer
 - **Merge customers**: Consolidate duplicate records
 - **Permissions**: Hide/show fields based on user role
@@ -212,7 +212,7 @@ Module 06: Invoices Basic
     ↓
     
 Module 07: Advanced Topics
-  ✓ Pagination strategies (CLIENT vs SERVER)
+  ✓ Pagination strategies for lists (CLIENT vs SERVER) — autocomplete's own infinite scroll is already covered in Module 05
   ✓ Data denormalization (invoice snapshots)
   ✓ Soft deletes & audit trails
   ✓ Multi-tenancy patterns
