@@ -2,13 +2,14 @@
  * SignUpPage - User registration
  */
 
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { signupThunk } from '../store/authThunks';
-import { selectAuthLoading, selectAuthError } from '../store/authSlice';
+import { selectAuthLoading, selectAuthError, selectIsAuthenticated } from '../store/authSlice';
 import type { AppDispatch } from '../store/store';
 
 const SignUpSchema = z.object({
@@ -24,6 +25,13 @@ export function SignUpPage() {
   const navigate = useNavigate();
   const isLoading = useSelector(selectAuthLoading);
   const error = useSelector(selectAuthError);
+  const isAuthenticated = useSelector(selectIsAuthenticated);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/profile', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
 
   const {
     register,
@@ -34,10 +42,7 @@ export function SignUpPage() {
   });
 
   const onSubmit = async (data: SignUpFormData) => {
-    const result = await dispatch(signupThunk(data));
-    if (result.meta.requestStatus === 'fulfilled') {
-      navigate('/profile');
-    }
+    await dispatch(signupThunk(data));
   };
 
   return (

@@ -40,13 +40,11 @@ export class AuthService implements IAuthService {
     const tokenPayload: TokenPayload = {
       userId: user.id,
       email: user.email,
+      sessionId,
     };
 
     const accessToken = this.tokenService.signAccessToken(tokenPayload);
-    const refreshToken = this.tokenService.signRefreshToken({
-      ...tokenPayload,
-      // In real apps, you might embed sessionId, but for simplicity we don't
-    });
+    const refreshToken = this.tokenService.signRefreshToken(tokenPayload);
 
     const userDTO = this.mapToDTO(user);
 
@@ -79,6 +77,7 @@ export class AuthService implements IAuthService {
     const tokenPayload: TokenPayload = {
       userId: user.id,
       email: user.email,
+      sessionId,
     };
 
     const accessToken = this.tokenService.signAccessToken(tokenPayload);
@@ -102,16 +101,25 @@ export class AuthService implements IAuthService {
       throw new AuthenticationError('Invalid or expired refresh token');
     }
 
+    const isSessionValid = await this.sessionRepository.isValid(payload.sessionId, payload.userId);
+    if (!isSessionValid) {
+      throw new AuthenticationError('Invalid or revoked refresh token');
+    }
+
     // Verify user still exists
     const user = await this.authRepository.findById(payload.userId);
     if (!user) {
       throw new NotFoundError('User not found');
     }
 
-    // Generate new tokens
+    await this.sessionRepository.revoke(payload.sessionId);
+    const sessionId = await this.sessionRepository.create(user.id);
+
+    // Generate rotated tokens
     const tokenPayload: TokenPayload = {
       userId: user.id,
       email: user.email,
+      sessionId,
     };
 
     const accessToken = this.tokenService.signAccessToken(tokenPayload);
@@ -123,9 +131,14 @@ export class AuthService implements IAuthService {
     };
   }
 
-  async logout(sessionId: string): Promise<void> {
-    // Revoke the session
-    await this.sessionRepository.revoke(sessionId);
+  async logout(refreshToken: string): Promise<void> {
+    const payload = this.tokenService.verifyRefreshToken(refreshToken);
+    if (!payload) return;
+
+    const isSessionValid = await this.sessionRepository.isValid(payload.sessionId, payload.userId);
+    if (isSessionValid) {
+      await this.sessionRepository.revoke(payload.sessionId);
+    }
   }
 
   async getCurrentUser(userId: string): Promise<AuthUserDTO> {

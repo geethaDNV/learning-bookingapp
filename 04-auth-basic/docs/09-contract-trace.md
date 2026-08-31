@@ -196,11 +196,11 @@ Access Token decoded:
 ### 8. Frontend Redux Update
 
 ```typescript
-// authSlice extra reducer handles fulfilled state
-dispatch(authSetUser({
-  user: { id: "clw1234567890", email: "...", name: "..." },
-  tokens: { accessToken: "eyJ...", refreshToken: "eyJ..." }
-}));
+// authSlice extra reducer handles signinThunk.fulfilled
+state.user = action.payload.user;
+state.accessToken = action.payload.tokens.accessToken;
+state.refreshToken = action.payload.tokens.refreshToken;
+state.isLoading = false;
 
 // Redux state updated:
 state.auth = {
@@ -342,7 +342,7 @@ SignUpPayload                             (HTTP POST)
          ├─ accessToken = "eyJ...userId..."
          └─ refreshToken = "eyJ...userId..."
               ↓
-         Redux authSetUser
+         Redux extra reducer handles auth/signup/fulfilled
          └─ state.auth.user.id = "clw1234567890"
          
     Later, API call with token:

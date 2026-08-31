@@ -78,10 +78,10 @@ export const authService = {
   /**
    * Logout the current user
    */
-  async logout(token: string): Promise<void> {
+  async logout(refreshToken: string): Promise<void> {
     return apiCall<void>(`${API_BASE}/auth/logout`, {
       method: 'POST',
-      token,
+      body: JSON.stringify({ refreshToken }),
     });
   },
 

@@ -22,6 +22,7 @@ export interface AuthTokens {
 export interface TokenPayload {
   userId: string;
   email: string;
+  sessionId: string;
 }
 
 export interface AuthUserDTO {
@@ -51,14 +52,14 @@ export interface IAuthTokenService {
 export interface IAuthSessionService {
   create(userId: string): Promise<string>;
   revoke(sessionId: string): Promise<void>;
-  isValid(sessionId: string): Promise<boolean>;
+  isValid(sessionId: string, userId: string): Promise<boolean>;
 }
 
 export interface IAuthService {
   signup(req: SignUpRequest): Promise<AuthResponse>;
   signin(req: SignInRequest): Promise<AuthResponse>;
   refresh(refreshToken: string): Promise<AuthTokens>;
-  logout(sessionId: string): Promise<void>;
+  logout(refreshToken: string): Promise<void>;
   getCurrentUser(userId: string): Promise<AuthUserDTO>;
   verifyAccessToken(token: string): Promise<TokenPayload | null>;
 }

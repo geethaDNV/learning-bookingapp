@@ -104,7 +104,7 @@ Request:
 Response: Same as signup.
 
 ### POST /api/v1/auth/refresh
-Refresh the access token using a refresh token.
+Refresh the token pair using an active refresh token. The server verifies the JWT, validates that its matching session is unrevoked and unexpired, revokes that session, and returns a pair bound to a new session.
 
 Request:
 ```json
@@ -122,11 +122,13 @@ Response:
 ```
 
 ### POST /api/v1/auth/logout
-Log out the current user.
+Log out the current user by revoking the session identified by the refresh token. This endpoint stays available after access-token expiry.
 
-Headers:
-```
-Authorization: Bearer <accessToken>
+Request:
+```json
+{
+  "refreshToken": "eyJ..."
+}
 ```
 
 Response:

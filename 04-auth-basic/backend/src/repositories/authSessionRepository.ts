@@ -17,9 +17,10 @@ export class AuthSessionRepository {
     });
   }
 
-  async isValid(sessionId: string): Promise<boolean> {
+  async isValid(sessionId: string, userId: string): Promise<boolean> {
     const session = await this.findById(sessionId);
     if (!session) return false;
+    if (session.userId !== userId) return false;
     if (session.revokedAt) return false;
     if (session.expiresAt && new Date() > session.expiresAt) return false;
     return true;

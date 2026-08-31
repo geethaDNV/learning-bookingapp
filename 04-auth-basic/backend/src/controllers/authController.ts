@@ -1,8 +1,7 @@
 import { Router, Response } from 'express';
 import type { IAuthService } from '../di/types';
 import { AuthenticatedRequest, requireAuth } from '../middleware/auth';
-import { SignUpSchema, SignInSchema, RefreshTokenSchema, SignUpInput, SignInInput, RefreshTokenInput } from '../schemas/authSchemas';
-import { ValidationError } from '../errors/appError';
+import { SignUpSchema, SignInSchema, RefreshTokenSchema } from '../schemas/authSchemas';
 
 export function createAuthController(authService: IAuthService) {
   const router = Router();
@@ -60,10 +59,10 @@ export function createAuthController(authService: IAuthService) {
     }
   });
 
-  router.post('/logout', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  router.post('/logout', async (req, res: Response) => {
     try {
-      // In a real app, you'd extract sessionId from somewhere
-      // For now, we just acknowledge logout
+      const body = RefreshTokenSchema.parse(req.body);
+      await authService.logout(body.refreshToken);
       res.status(200).json({ message: 'Logged out successfully' });
     } catch (error) {
       if (error instanceof Error) {

@@ -7,11 +7,11 @@ import { useNavigate } from 'react-router-dom';
 import {
   selectAuthUser,
   selectAccessToken,
-  authClear,
+  selectRefreshToken,
 } from '../store/authSlice';
-import { tokenStorage } from '../services/tokenStorage';
 import { authService } from '../services/authService';
 import type { AppDispatch } from '../store/store';
+import { logoutThunk } from '../store/authThunks';
 import { useState } from 'react';
 
 export function ProfilePage() {
@@ -19,17 +19,16 @@ export function ProfilePage() {
   const navigate = useNavigate();
   const user = useSelector(selectAuthUser);
   const accessToken = useSelector(selectAccessToken);
+  const refreshToken = useSelector(selectRefreshToken);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [protectedData, setProtectedData] = useState<string | null>(null);
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
     try {
-      if (accessToken) {
-        await authService.logout(accessToken);
+      if (refreshToken) {
+        await dispatch(logoutThunk(refreshToken)).unwrap();
       }
-      tokenStorage.clearTokens();
-      dispatch(authClear());
       navigate('/signin');
     } catch (error) {
       console.error('Logout error:', error);

@@ -61,7 +61,7 @@ async signin(req: SignInRequest): Promise<AuthResponse> {
   // → INSERT into refresh_sessions VALUES (id, userId, now, now+7d, null)
 
   // Generate tokens
-  const tokenPayload = { userId: user.id, email: user.email };
+  const tokenPayload = { userId: user.id, email: user.email, sessionId };
   const accessToken = tokenService.signAccessToken(tokenPayload);   // exp: 15m
   const refreshToken = tokenService.signRefreshToken(tokenPayload); // exp: 7d
 
@@ -90,12 +90,20 @@ async refresh(refreshToken: string): Promise<AuthTokens> {
   const payload = tokenService.verifyRefreshToken(refreshToken);
   if (!payload) throw new AuthenticationError('Invalid or expired refresh token');
 
-  // 2. Get user (check still exists)
+  // 2. Check the matching server-side session is active
+  const isSessionValid = await sessionRepository.isValid(payload.sessionId, payload.userId);
+  if (!isSessionValid) throw new AuthenticationError('Invalid or revoked refresh token');
+
+  // 3. Get user (check still exists)
   const user = await authRepository.findById(payload.userId);
   if (!user) throw new NotFoundError('User not found');
 
-  // 3. Generate NEW tokens
-  const tokenPayload = { userId: user.id, email: user.email };
+  // 4. Rotate the session so the supplied refresh token cannot be replayed.
+  await sessionRepository.revoke(payload.sessionId);
+  const sessionId = await sessionRepository.create(user.id);
+
+  // 5. Generate NEW tokens bound to the replacement session
+  const tokenPayload = { userId: user.id, email: user.email, sessionId };
   const newAccessToken = tokenService.signAccessToken(tokenPayload);    // new exp: 15m
   const newRefreshToken = tokenService.signRefreshToken(tokenPayload);  // new exp: 7d
 
@@ -121,17 +129,19 @@ Response (200):
 Request:
 ```json
 {
-  "sessionId": "session-1"
+  "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 }
 ```
 
-(In this simplified version, we just clear tokens on frontend)
-
 Backend:
 ```typescript
-async logout(sessionId: string): Promise<void> {
-  // Mark session as revoked
-  await sessionRepository.revoke(sessionId);
+async logout(refreshToken: string): Promise<void> {
+  const payload = tokenService.verifyRefreshToken(refreshToken);
+  if (!payload) return;
+
+  if (await sessionRepository.isValid(payload.sessionId, payload.userId)) {
+    await sessionRepository.revoke(payload.sessionId);
+  }
   // → UPDATE refresh_sessions SET revokedAt = NOW() WHERE id = sessionId
 }
 ```
@@ -211,9 +221,10 @@ async isValid(sessionId: string): Promise<boolean> {
 ```
 User clicks "Logout" button
     ↓
-    └─→ Frontend: authService.logout(accessToken)
+    └─→ Frontend: authService.logout(refreshToken)
         └─→ Backend: POST /api/v1/auth/logout
-            ├─ Find session
+        ├─ Verify refresh token and find its session
+        ├─ Check the session is valid for that user
             ├─ Set revokedAt = NOW()
             └─ Return 200
         ↓
@@ -334,9 +345,11 @@ export const tokenStorage = {
 ### Revocation on Logout
 Invalidate all refresh tokens for security:
 ```typescript
-async logout(sessionId: string): Promise<void> {
-  // Mark this session as revoked
-  await sessionRepository.revoke(sessionId);
+async logout(refreshToken: string): Promise<void> {
+  const payload = tokenService.verifyRefreshToken(refreshToken);
+  if (payload && await sessionRepository.isValid(payload.sessionId, payload.userId)) {
+    await sessionRepository.revoke(payload.sessionId);
+  }
   
   // Optional: Revoke all sessions for user
   // await sessionRepository.revokeAllForUser(userId);
@@ -347,7 +360,7 @@ async logout(sessionId: string): Promise<void> {
 
 - **Access token** is short-lived (15 minutes)
 - **Refresh token** is long-lived (7 days)
-- **Session** database record tracks validity and revocation
+- **Session** database record tracks validity and revocation; refresh tokens include its ID
 - **Refresh endpoint** validates refresh token and returns new pair
 - **Logout** revokes sessions to prevent token reuse
 - **Frontend** handles token refresh transparently to user

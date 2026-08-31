@@ -125,8 +125,10 @@ router.get('/me', requireAuth, async (req: AuthenticatedRequest, res: Response) 
   res.json(user);
 });
 
-router.post('/logout', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
-  // Protected: requires valid access token
+router.post('/logout', async (req, res) => {
+  const { refreshToken } = RefreshTokenSchema.parse(req.body);
+  await authService.logout(refreshToken);
+  // Uses the refresh token's session ID, so it also works after access-token expiry.
   res.json({ message: 'Logged out successfully' });
 });
 ```
@@ -247,11 +249,10 @@ Browser: GET /profile
 ```
 ProfilePage: handleLogout()
     ↓
-    authService.logout(accessToken)
+  authService.logout(refreshToken)
     └─ POST /api/v1/auth/logout
-        ├─ Backend requireAuth checks token
-        ├─ Token valid, proceed
-        └─ Revoke session
+    ├─ Backend verifies refresh token and its session
+    └─ Revoke session
         
     ↓
     tokenStorage.clearTokens()
@@ -280,12 +281,12 @@ dispatch(signinThunk({ email, password }))
     ├─ POST /api/v1/auth/signin
     ├─ Response: { user, tokens }
     ├─ tokenStorage.saveTokens(...)
-    └─ dispatch(authSetUser(...))
+    └─ authSlice extra reducer handles signinThunk.fulfilled
         └─ state.auth.user = { id, email, name }
         └─ state.auth.accessToken = token
     ↓
-    Component checks result.meta.requestStatus === 'fulfilled'
-    ├─ True → navigate('/profile')
+    useEffect observes selectIsAuthenticated = true
+    ├─ navigate('/profile')
     └─ <ProtectedRoute> checks selectIsAuthenticated = true
         └─ Render <ProfilePage />
 ```

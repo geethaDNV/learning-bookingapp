@@ -131,7 +131,7 @@ export interface IAuthService {
   signup(req: SignUpRequest): Promise<AuthResponse>;
   signin(req: SignInRequest): Promise<AuthResponse>;
   refresh(refreshToken: string): Promise<AuthTokens>;
-  logout(sessionId: string): Promise<void>;
+  logout(refreshToken: string): Promise<void>;
   getCurrentUser(userId: string): Promise<AuthUserDTO>;
   verifyAccessToken(token: string): Promise<TokenPayload | null>;
 }

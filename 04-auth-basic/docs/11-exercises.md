@@ -569,8 +569,8 @@ function VerifyEmailPage() {
 
 2. Redirect from signup:
 ```typescript
-const result = await dispatch(signupThunk(data));
-if (result.meta.requestStatus === 'fulfilled' && result.payload.verificationRequired) {
+const result = await dispatch(signupThunk(data)).unwrap();
+if (result.verificationRequired) {
   navigate('/verify-email');
 }
 ```

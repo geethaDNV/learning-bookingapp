@@ -39,26 +39,6 @@ export const authSlice = createSlice({
   name: 'auth',
   initialState,
   reducers: {
-    // Manual actions
-    authStartLoading: (state) => {
-      state.isLoading = true;
-      state.error = null;
-    },
-
-    authSetUser: (state, action: PayloadAction<{ user: AuthUser; tokens: AuthTokens }>) => {
-      state.user = action.payload.user;
-      state.accessToken = action.payload.tokens.accessToken;
-      state.refreshToken = action.payload.tokens.refreshToken;
-      state.isLoading = false;
-      state.error = null;
-    },
-
-    authSetTokens: (state, action: PayloadAction<AuthTokens>) => {
-      state.accessToken = action.payload.accessToken;
-      state.refreshToken = action.payload.refreshToken;
-      state.isLoading = false;
-    },
-
     authClear: (state) => {
       state.user = null;
       state.accessToken = null;
@@ -66,20 +46,33 @@ export const authSlice = createSlice({
       state.isLoading = false;
       state.error = null;
     },
-
-    authSetError: (state, action: PayloadAction<string>) => {
-      state.isLoading = false;
-      state.error = action.payload;
-    },
-
     authRestoreFromStorage: (state, action: PayloadAction<{ ... }>) => {
       state.user = action.payload.user;
       state.accessToken = action.payload.accessToken;
       state.refreshToken = action.payload.refreshToken;
     },
   },
+  extraReducers: (builder) => {
+    builder
+      .addCase(signinThunk.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(signinThunk.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.user = action.payload.user;
+        state.accessToken = action.payload.tokens.accessToken;
+        state.refreshToken = action.payload.tokens.refreshToken;
+      })
+      .addCase(signinThunk.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload || action.error.message || 'Failed to sign in';
+      });
+  },
 });
 ```
+
+`signupThunk`, `refreshThunk`, `logoutThunk`, and `loadCurrentUserThunk` follow the same pending, fulfilled, and rejected builder pattern.
 
 ## Thunks (Async Actions)
 
@@ -117,13 +110,13 @@ dispatch(signinThunk({ email, password }))
     ├─ If success:
     │   ↓
     │   [FULFILLED] payload = { user, tokens }
-    │   ├─ authSetUser({ user, tokens })
+    │   ├─ extraReducers handles signinThunk.fulfilled
     │   └─ state = { user, tokens, isLoading: false, error: null }
     │
     └─ If error:
         ↓
         [REJECTED] error = message
-        ├─ authSetError(message)
+      ├─ extraReducers handles signinThunk.rejected
         └─ state = { ..., isLoading: false, error: message }
 ```
 
@@ -198,13 +191,16 @@ function SignInPage() {
 function SignInPage() {
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
+  const isAuthenticated = useSelector(selectIsAuthenticated);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/profile', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
 
   const handleSubmit = async (data: SignInPayload) => {
-    const result = await dispatch(signinThunk(data));
-    
-    if (result.meta.requestStatus === 'fulfilled') {
-      navigate('/profile');
-    }
+    await dispatch(signinThunk(data));
   };
 
   return <form onSubmit={handleSubmit}>...</form>;
@@ -246,10 +242,11 @@ function AppContent() {
     
     if (accessToken) {
       dispatch(authRestoreFromStorage({
-        user: null,  // TODO: Load user from /api/v1/auth/me
+        user: null,
         accessToken,
         refreshToken,
       }));
+      dispatch(loadCurrentUserThunk(accessToken));
     }
   }, [dispatch]);
 
@@ -286,14 +283,8 @@ Component dispatches it:
 ```typescript
 // ProfilePage.tsx
 if (tokenExpiringSoon(accessToken)) {
-  const result = await dispatch(refreshThunk(refreshToken || ''));
-  
-  if (result.meta.requestStatus === 'fulfilled') {
-    // New tokens are in state
-  } else {
-    // Refresh failed, redirect to signin
-    navigate('/signin');
-  }
+  await dispatch(refreshThunk(refreshToken || ''));
+  // The extra reducers update either tokens or error state.
 }
 ```
 
@@ -301,14 +292,11 @@ if (tokenExpiringSoon(accessToken)) {
 
 ```typescript
 // Dispatch logout thunk
-const result = await dispatch(logoutThunk(accessToken || ''));
-
-if (result.meta.requestStatus === 'fulfilled') {
-  // Clear local storage (done in thunk)
-  // Clear Redux state
-  dispatch(authClear());
-  // Redirect
+try {
+  await dispatch(logoutThunk(accessToken || '')).unwrap();
   navigate('/signin');
+} catch {
+  // The rejected reducer has cleared auth state and recorded the error.
 }
 ```
 
@@ -321,14 +309,14 @@ Submit with React Hook Form
     ↓
 dispatch(signupThunk(formData))
     ├─ Thunk pending
-    │  └─ authStartLoading() → isLoading = true
+  │  └─ extraReducers → isLoading = true
     │
     ├─ API call: POST /api/v1/auth/signup
     │  └─ Backend returns { user, tokens }
     │
     ├─ Thunk fulfilled
     │  ├─ Side effect: tokenStorage.saveTokens(...)
-    │  └─ authSetUser({ user, tokens })
+    │  └─ extraReducers stores user and tokens
     │      └─ Redux state updated
     │
     └─ Component re-renders
@@ -353,10 +341,8 @@ const result = dispatch(signupThunk(formData));
 const user = useSelector(selectAuthUser);
 // ✓ user type is AuthUser | null
 
-// Dispatch return
-if (result.meta.requestStatus === 'fulfilled') {
-  // ✓ result.payload is { user: AuthUser; tokens: AuthTokens }
-}
+// Reducers receive a typed fulfilled action payload.
+// ✓ action.payload is { user: AuthUser; tokens: AuthTokens }
 ```
 
 ## Testing Redux
@@ -372,7 +358,11 @@ describe('authSlice', () => {
     const testUser = { id: '1', email: 'test@example.com', name: null };
     const testTokens = { accessToken: 'token1', refreshToken: 'token2' };
     
-    store.dispatch(authSetUser({ user: testUser, tokens: testTokens }));
+    store.dispatch(signinThunk.fulfilled(
+      { user: testUser, tokens: testTokens },
+      'request-id',
+      { email: 'test@example.com', password: 'password' }
+    ));
     
     const state = store.getState();
     expect(state.auth.user).toEqual(testUser);

@@ -3,8 +3,15 @@
  */
 
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import type { AuthState, AuthUser, AuthTokens } from '../models/auth';
+import type { AuthState, AuthUser } from '../models/auth';
 import type { RootState } from './store';
+import {
+  loadCurrentUserThunk,
+  logoutThunk,
+  refreshThunk,
+  signinThunk,
+  signupThunk,
+} from './authThunks';
 
 const initialState: AuthState = {
   user: null,
@@ -18,29 +25,6 @@ export const authSlice = createSlice({
   name: 'auth',
   initialState,
   reducers: {
-    // Start loading
-    authStartLoading: (state) => {
-      state.isLoading = true;
-      state.error = null;
-    },
-
-    // Success actions
-    authSetUser: (state, action: PayloadAction<{ user: AuthUser; tokens: AuthTokens }>) => {
-      state.user = action.payload.user;
-      state.accessToken = action.payload.tokens.accessToken;
-      state.refreshToken = action.payload.tokens.refreshToken;
-      state.isLoading = false;
-      state.error = null;
-    },
-
-    authSetTokens: (state, action: PayloadAction<AuthTokens>) => {
-      state.accessToken = action.payload.accessToken;
-      state.refreshToken = action.payload.refreshToken;
-      state.isLoading = false;
-      state.error = null;
-    },
-
-    // Clear auth
     authClear: (state) => {
       state.user = null;
       state.accessToken = null;
@@ -48,28 +32,89 @@ export const authSlice = createSlice({
       state.isLoading = false;
       state.error = null;
     },
-
-    // Set error
-    authSetError: (state, action: PayloadAction<string>) => {
-      state.isLoading = false;
-      state.error = action.payload;
-    },
-
-    // Restore from storage
     authRestoreFromStorage: (state, action: PayloadAction<{ user: AuthUser | null; accessToken: string | null; refreshToken: string | null }>) => {
       state.user = action.payload.user;
       state.accessToken = action.payload.accessToken;
       state.refreshToken = action.payload.refreshToken;
     },
   },
+  extraReducers: (builder) => {
+    builder
+      .addCase(signupThunk.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(signupThunk.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.user = action.payload.user;
+        state.accessToken = action.payload.tokens.accessToken;
+        state.refreshToken = action.payload.tokens.refreshToken;
+      })
+      .addCase(signupThunk.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = typeof action.payload === 'string' ? action.payload : action.error.message ?? 'Failed to sign up';
+      })
+      .addCase(signinThunk.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(signinThunk.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.user = action.payload.user;
+        state.accessToken = action.payload.tokens.accessToken;
+        state.refreshToken = action.payload.tokens.refreshToken;
+      })
+      .addCase(signinThunk.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = typeof action.payload === 'string' ? action.payload : action.error.message ?? 'Failed to sign in';
+      })
+      .addCase(refreshThunk.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(refreshThunk.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.accessToken = action.payload.accessToken;
+        state.refreshToken = action.payload.refreshToken;
+      })
+      .addCase(refreshThunk.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = typeof action.payload === 'string' ? action.payload : action.error.message ?? 'Failed to refresh token';
+      })
+      .addCase(logoutThunk.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(logoutThunk.fulfilled, (state) => {
+        state.user = null;
+        state.accessToken = null;
+        state.refreshToken = null;
+        state.isLoading = false;
+      })
+      .addCase(logoutThunk.rejected, (state, action) => {
+        state.user = null;
+        state.accessToken = null;
+        state.refreshToken = null;
+        state.isLoading = false;
+        state.error = typeof action.payload === 'string' ? action.payload : action.error.message ?? 'Failed to log out';
+      })
+      .addCase(loadCurrentUserThunk.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(loadCurrentUserThunk.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.user = action.payload;
+      })
+      .addCase(loadCurrentUserThunk.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = typeof action.payload === 'string' ? action.payload : action.error.message ?? 'Failed to load current user';
+      });
+  },
 });
 
 export const {
-  authStartLoading,
-  authSetUser,
-  authSetTokens,
   authClear,
-  authSetError,
   authRestoreFromStorage,
 } = authSlice.actions;
 

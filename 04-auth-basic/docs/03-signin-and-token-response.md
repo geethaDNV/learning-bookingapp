@@ -50,7 +50,7 @@ async signin(req: SignInRequest): Promise<AuthResponse> {
   const sessionId = await sessionRepository.create(user.id);
 
   // 4. Generate tokens
-  const tokenPayload = { userId: user.id, email: user.email };
+  const tokenPayload = { userId: user.id, email: user.email, sessionId };
   const accessToken = tokenService.signAccessToken(tokenPayload);
   const refreshToken = tokenService.signRefreshToken(tokenPayload);
 
@@ -98,6 +98,20 @@ Both tokens are JWTs with three parts: `header.payload.signature`
 ```json
 {
   "userId": "clw1234567890",
+```json
+{
+  "user": {
+    "id": "clw1234567890",
+    "email": "user@example.com",
+    "name": "John Doe"
+  },
+  "tokens": {
+    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJjbHcxMjM0NTY3ODkwIiwiZW1haWwiOiJ1c2VyQGV4YW1wbGUuY29tIiwiaWF0IjoxNzA4MjMxMDAwLCJleHAiOjE3MDgyMzE5MDB9.signature",
+    "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJjbHcxMjM0NTY3ODkwIiwiZW1haWwiOiJ1c2VyQGV4YW1wbGUuY29tIiwiaWF0IjoxNzA4MjMxMDAwLCJleHAiOjE3MDgyMzE2MDB9.signature"
+  }
+}
+```
+
   "email": "user@example.com",
   "iat": 1708231000,    // issued at (Unix timestamp)
   "exp": 1708231900     // expires at (15 minutes later)
@@ -136,25 +150,16 @@ async signin(payload: SignInPayload): Promise<AuthResponse> {
 }
 
 // In component (SignInPage.tsx)
-const result = await authService.signin(formData);
+await dispatch(signinThunk(formData));
 
-// Save to localStorage
-tokenStorage.saveTokens(
-  result.tokens.accessToken,
-  result.tokens.refreshToken
-);
-
-// Update Redux
-dispatch(authSetUser({
-  user: result.user,
-  tokens: result.tokens
-}));
+// The thunk saves tokens. authSlice handles signinThunk.fulfilled
+// and updates Redux state through its extra reducer.
 ```
 
 ### Use Access Token in API Calls
 
 ```typescript
-async apiCall<T>(url: string, options: RequestInit & { token?: string } = {}) {
+await dispatch(signinThunk(formData));
   const headers = {
     'Content-Type': 'application/json',
     ...(token && { 'Authorization': `Bearer ${token}` })
@@ -273,7 +278,7 @@ export const signinThunk = createAsyncThunk(
 );
 ```
 
-When successful, dispatch `authSetUser` action to update Redux state.
+On success, `authSlice` handles `signinThunk.fulfilled` in `extraReducers` to update Redux state. Its pending and rejected cases track loading and error state.
 
 ## Summary
 

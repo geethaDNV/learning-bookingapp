@@ -3,19 +3,7 @@
  */
 
 import { configureStore } from '@reduxjs/toolkit';
-import authReducer, {
-  authStartLoading,
-  authSetUser,
-  authSetTokens,
-  authSetError,
-} from './authSlice';
-import {
-  signupThunk,
-  signinThunk,
-  refreshThunk,
-  logoutThunk,
-  loadCurrentUserThunk,
-} from './authThunks';
+import authReducer from './authSlice';
 
 export const store = configureStore({
   reducer: {
@@ -25,11 +13,6 @@ export const store = configureStore({
 
 export type RootState = ReturnType<typeof store.getState>;
 export type AppDispatch = typeof store.dispatch;
-
-// Add extra reducers for thunk states
-import { authSlice } from './authSlice';
-
-const authSliceWithExtraReducers = authSlice.getReducers();
 
 // Note: Extra reducers would be added to the auth slice for handling
 // pending, fulfilled, and rejected states of thunks.

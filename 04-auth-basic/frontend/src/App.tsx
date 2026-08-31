@@ -4,7 +4,7 @@
 
 import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { useDispatch, useSelector } from 'react-redux';
+import { useDispatch } from 'react-redux';
 import { SignInPage } from './pages/SignInPage';
 import { SignUpPage } from './pages/SignUpPage';
 import { ProfilePage } from './pages/ProfilePage';
@@ -13,24 +13,21 @@ import { tokenStorage } from './services/tokenStorage';
 import { authRestoreFromStorage } from './store/authSlice';
 import { loadCurrentUserThunk } from './store/authThunks';
 import type { AppDispatch } from './store/store';
-import { selectAccessToken } from './store/authSlice';
 
 function AppContent() {
   const dispatch = useDispatch<AppDispatch>();
-  const accessToken = useSelector(selectAccessToken);
 
   // Restore auth state from localStorage on mount
   useEffect(() => {
     const { accessToken: savedAccessToken, refreshToken: savedRefreshToken } = tokenStorage.loadTokens();
     
     if (savedAccessToken) {
-      // TODO: In a real app, you'd load the current user here
-      // For now, we just restore the token state
       dispatch(authRestoreFromStorage({
         user: null,
         accessToken: savedAccessToken,
         refreshToken: savedRefreshToken,
       }));
+      dispatch(loadCurrentUserThunk(savedAccessToken));
     }
   }, [dispatch]);
 
